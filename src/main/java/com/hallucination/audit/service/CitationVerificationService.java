@@ -1,6 +1,5 @@
 package com.hallucination.audit.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hallucination.audit.ai.CitationValidator;
 import com.hallucination.audit.dto.ExtractedCitation;
 import com.hallucination.audit.dto.WikipediaSearchResponse;
