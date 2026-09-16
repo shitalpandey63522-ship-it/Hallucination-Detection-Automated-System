@@ -1,0 +1,17 @@
+[ {
+  "topic" : "History",
+  "docId" : "seed-gandhi",
+  "text" : "Mohandas Karamchand Gandhi was born on 2 October 1869 in Porbandar, Gujarat, India. He was an Indian lawyer, anti-colonial nationalist and political ethicist who led the successful campaign for India's independence from British rule.\nRabindranath Tagore was a Bengali polymath who reshaped Bengali literature and music. He won the Nobel Prize in Literature in 1913, becoming the first non-European laureate.\nThe United States Declaration of Independence was adopted by the Second Continental Congress in Philadelphia on July 4, 1776, declaring independence from Great Britain.\n"
+}, {
+  "topic" : "Science",
+  "docId" : "seed-physics",
+  "text" : "Albert Einstein was a German-born theoretical physicist. He published the Special Theory of Relativity in 1905 and the General Theory of Relativity in 1916. He is best known for his mass-energy equivalence formula E=mc2.\nQuantum entanglement is a physical phenomenon that occurs when a group of particles interact in ways such that the quantum state of each particle cannot be described independently.\n"
+}, {
+  "topic" : "General",
+  "docId" : "quantum-physics",
+  "text" : "Quantum entanglement is a phenomenon in quantum physics where two particles remain connected so that actions performed on one affect the other instantly."
+}, {
+  "topic" : "General",
+  "docId" : "quantum-physics",
+  "text" : "Quantum entanglement is a phenomenon in quantum physics where two particles remain connected so that actions performed on one affect the other instantly."
+} ]

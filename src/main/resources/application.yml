@@ -1,0 +1,60 @@
+spring:
+  application:
+    name: hallucination-audit
+  config:
+    import: optional:classpath:application-local.yml
+  datasource:
+    url: jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+server:
+  port: ${SERVER_PORT:8082}
+  tomcat:
+    basedir: ${user.dir}/.tomcat-workspace
+
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+  model-name: gemini-3.1-flash-lite
+  temperature: 0.0
+  timeout-seconds: 120
+
+audit:
+  flag-threshold: 30.0
+  neutral-weight: 0.2
+  proxy:
+    host: ""
+    port: 0
+  executor:
+    core-pool-size: 4
+    max-pool-size: 8
+    queue-capacity: 100
+
+---
+spring:
+  config:
+    activate:
+      on-profile: postgres
+  datasource:
+    url: jdbc:postgresql://localhost:5432/hallucination_audit
+    driver-class-name: org.postgresql.Driver
+    username: ${POSTGRES_USER:audit}
+    password: ${POSTGRES_PASSWORD:audit}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect

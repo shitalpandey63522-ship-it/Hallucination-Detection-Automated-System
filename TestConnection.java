@@ -1,0 +1,1 @@
+import java.net.URL; import java.net.HttpURLConnection; public class TestConnection { public static void main(String[] args) throws Exception { URL url = new URL("https://generativelanguage.googleapis.com/"); HttpURLConnection con = (HttpURLConnection) url.openConnection(); con.setRequestMethod("GET"); System.out.println("Response Code: " + con.getResponseCode()); } }
