@@ -62,6 +62,16 @@ public class WikiService {
 
     private final java.util.concurrent.ExecutorService searchExecutor = java.util.concurrent.Executors.newCachedThreadPool();
 
+    public static boolean isDisambiguationStub(String summary) {
+        if (summary == null || summary.isBlank()) return false;
+        String lower = summary.toLowerCase();
+        return lower.contains("may refer to:")
+                || lower.contains("most commonly refers to:")
+                || lower.contains("refer to:")
+                || lower.contains("can refer to:")
+                || lower.contains("disambiguation page");
+    }
+
     public WikipediaSearchResponse search(String query) {
         if (query == null || query.isBlank()) {
             throw new IllegalArgumentException("Query must not be blank");
@@ -90,8 +100,14 @@ public class WikiService {
         WikipediaSearchResponse webResp = null;
         try { webResp = webFuture.getNow(null); } catch (Exception ignored) {}
 
-        boolean wikiValid = wikiResp != null && wikiResp.summary() != null && wikiResp.summary().length() > 30 && !wikiResp.summary().contains("unavailable");
-        boolean webValid = webResp != null && webResp.summary() != null && webResp.summary().length() > 30 && !webResp.summary().contains("unavailable");
+        boolean wikiValid = wikiResp != null && wikiResp.summary() != null 
+                && wikiResp.summary().length() > 30 
+                && !wikiResp.summary().contains("unavailable")
+                && !isDisambiguationStub(wikiResp.summary());
+        boolean webValid = webResp != null && webResp.summary() != null 
+                && webResp.summary().length() > 30 
+                && !webResp.summary().contains("unavailable")
+                && !isDisambiguationStub(webResp.summary());
 
         WikipediaSearchResponse finalResult;
 
@@ -135,11 +151,21 @@ public class WikiService {
         StringBuilder mergedSummary = new StringBuilder();
         String mainTitle = null;
         String mainUrl = null;
+        java.util.Set<String> seenTitles = new java.util.HashSet<>();
 
         for (var future : futures) {
             WikipediaSearchResponse resp = null;
             try { resp = future.getNow(null); } catch (Exception ignored) {}
-            if (resp != null && resp.summary() != null && !resp.summary().isBlank() && !resp.summary().contains("unavailable")) {
+            if (resp != null && resp.summary() != null && !resp.summary().isBlank() 
+                    && !resp.summary().contains("unavailable")
+                    && !isDisambiguationStub(resp.summary())) {
+                String cleanTitle = (resp.title() != null) ? resp.title().trim().toLowerCase() : "";
+                if (!cleanTitle.isBlank() && seenTitles.contains(cleanTitle)) {
+                    continue; // Skip duplicate topic extracts in parallel search
+                }
+                if (!cleanTitle.isBlank()) {
+                    seenTitles.add(cleanTitle);
+                }
                 if (mainTitle == null) {
                     mainTitle = resp.title();
                     mainUrl = resp.url();

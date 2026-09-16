@@ -47,14 +47,19 @@ public class LocalNlpUtils {
         if (text == null || text.isBlank()) {
             return List.of();
         }
-        String[] split = text.split("(?<=[.!?])\\s+");
+        // Protect numeric decimals (e.g. 1.5, 3.14) and common abbreviations (e.g. Dr., Mr., Mrs., Prof., e.g., i.e., vs., U.S.)
+        String protectedText = text.replaceAll("(?<=\\b\\d)\\.(?=\\d)", "___DOT___")
+                .replaceAll("(?i)\\b(dr|mr|mrs|ms|prof|sr|jr|vs|st|e\\.g|i\\.e|etc|u\\.s|no|vol|fig|pp)\\.", "$1___DOT___");
+
+        String[] split = protectedText.split("(?<=[.!?])\\s+(?=[A-Z\"'\\d])|(?<=[.!?])\\s+$");
         List<String> result = new ArrayList<>();
         for (String s : split) {
-            if (!s.isBlank()) {
-                result.add(s.trim());
+            String restored = s.replaceAll("___DOT___", ".").trim();
+            if (!restored.isBlank()) {
+                result.add(restored);
             }
         }
-        return result;
+        return result.isEmpty() ? List.of(text.trim()) : result;
     }
 
     public static List<ExtractedCitation> extractCitationsLocally(String text) {
@@ -116,6 +121,18 @@ public class LocalNlpUtils {
             }
         }
         String res = sb.toString().trim();
-        return res.isBlank() ? cleaned : res;
+        if (res.isBlank() || isPronounOrGeneric(res)) {
+            return cleaned.isBlank() ? text.trim() : cleaned;
+        }
+        return res;
+    }
+
+    private static boolean isPronounOrGeneric(String topic) {
+        if (topic == null || topic.isBlank()) return true;
+        String t = topic.trim().toLowerCase();
+        return t.equals("he") || t.equals("she") || t.equals("it") || t.equals("they") 
+            || t.equals("this") || t.equals("that") || t.equals("these") || t.equals("those")
+            || t.equals("there") || t.equals("here") || t.equals("what") || t.equals("who")
+            || t.equals("how") || t.equals("why") || t.equals("when") || t.equals("where");
     }
 }
