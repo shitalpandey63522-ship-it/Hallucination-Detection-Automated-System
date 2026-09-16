@@ -727,13 +727,18 @@ public class AuditPipelineService {
     }
 
     private boolean hasNegationConflict(String claim, String context) {
-        String[] negationWords = {"not", "never", "no", "denied", "refused", "incorrect", "false", "fail"};
         String c = claim == null ? "" : claim.toLowerCase();
         String cx = context == null ? "" : context.toLowerCase();
         
+        // Filter out non-negating idiom phrases like 'no longer', 'no more', 'no doubt', 'no matter'
+        String cleanedCx = cx.replaceAll("\\bno\\s+(longer|more|doubt|matter|less)\\b", " ");
+        String cleanedC = c.replaceAll("\\bno\\s+(longer|more|doubt|matter|less)\\b", " ");
+
+        String[] negationWords = {"not", "never", "no", "denied", "refused", "incorrect", "false", "fail", "cannot", "isnt", "wasnt", "doesnt"};
+        
         boolean claimHasNegation = false;
         for (String nw : negationWords) {
-            if (java.util.regex.Pattern.compile("\\b" + nw + "\\b").matcher(c).find()) {
+            if (java.util.regex.Pattern.compile("\\b" + nw + "\\b").matcher(cleanedC).find()) {
                 claimHasNegation = true;
                 break;
             }
@@ -741,13 +746,17 @@ public class AuditPipelineService {
         
         boolean contextHasNegation = false;
         for (String nw : negationWords) {
-            if (java.util.regex.Pattern.compile("\\b" + nw + "\\b").matcher(cx).find()) {
+            if (java.util.regex.Pattern.compile("\\b" + nw + "\\b").matcher(cleanedCx).find()) {
                 contextHasNegation = true;
                 break;
             }
         }
 
-        return (claimHasNegation != contextHasNegation) && containsSharedWords(c, cx);
+        List<String> claimTokens = LocalNlpUtils.tokenizeAndClean(c);
+        List<String> contextTokens = LocalNlpUtils.tokenizeAndClean(cx);
+        double overlap = overlapScore(claimTokens, contextTokens);
+
+        return (claimHasNegation != contextHasNegation) && overlap >= 0.35;
     }
 
     private boolean hasNumericMismatch(String claim, String context) {
