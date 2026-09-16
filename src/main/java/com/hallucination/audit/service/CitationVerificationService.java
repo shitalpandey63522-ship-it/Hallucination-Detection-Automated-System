@@ -20,13 +20,11 @@ public class CitationVerificationService {
     private final CitationValidator citationValidator;
     private final WikiService wikiService;
     private final ExecutorService executorService;
-    private final ObjectMapper objectMapper;
 
-    public CitationVerificationService(CitationValidator citationValidator, WikiService wikiService, ExecutorService executorService, ObjectMapper objectMapper) {
+    public CitationVerificationService(CitationValidator citationValidator, WikiService wikiService, ExecutorService executorService) {
         this.citationValidator = citationValidator;
         this.wikiService = wikiService;
         this.executorService = executorService;
-        this.objectMapper = objectMapper;
     }
 
     public List<ExtractedCitation> evaluateCitationsInParallel(List<ExtractedCitation> rawCitations) {
@@ -42,7 +40,7 @@ public class CitationVerificationService {
                 .collect(Collectors.toList());
 
         return futures.stream()
-                .map(CompletableFuture::join)
+                .map(f -> f.join())
                 .collect(Collectors.toList());
     }
 
