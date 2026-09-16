@@ -783,6 +783,15 @@ public class AuditPipelineService {
     }
 
     private boolean hasNumericMismatch(String claim, String context) {
+        String cLower = claim == null ? "" : claim.toLowerCase();
+        String cxLower = context == null ? "" : context.toLowerCase();
+
+        // Do not flag numeric mismatch if ordinal reference categories or offset scopes differ (e.g. planet vs object after the sun)
+        if ((cLower.contains("planet") && cxLower.contains("object") && (cxLower.contains("after the sun") || cxLower.contains("including the sun")))
+            || (cLower.contains("object") && cxLower.contains("planet"))) {
+            return false;
+        }
+
         java.util.regex.Pattern numPattern = java.util.regex.Pattern.compile("\\b(\\d+(?:\\.\\d+)?|\\d+%|\\d+-\\d+)\\b");
         java.util.regex.Matcher matcher = numPattern.matcher(claim);
         

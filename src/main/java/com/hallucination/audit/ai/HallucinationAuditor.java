@@ -24,7 +24,8 @@ public interface HallucinationAuditor {
             4. POST-MORTEM & TEMPORAL RULE: If a claim asserts an event, award, or discovery year occurring AFTER an entity's death year in context (e.g. award in 1925, but died in 1920), classify as CONTRADICTION.
             5. IMPLICIT REFUTATION & AWARD RULE: If a claim attributes a major award (e.g. Nobel Prize) or discovery to a historical figure, but the ground-truth context lists their field/achievements or specifies a different winner/discovery date, classify as CONTRADICTION.
             6. HIGH-LEVEL SUMMARY & CAUSAL ENTAILMENT RULE: High-level scientific summary statements (e.g. 'Sun-Earth interactions drive the seasons' or 'Sun gravity keeps planets in orbit') are ENTAILMENT if reference context establishes that solar radiation, energy, or gravity governs Earth's climate/orbit. Do not classify summary claims as NEUTRAL merely because the claim omits lower-level mechanisms (like 'axial tilt').
-            7. Classify as NEUTRAL ONLY if the topic/entity is completely absent and no temporal, domain, or factual conflict exists.
+            7. ORDINAL & REFERENCE SET SCOPE RULE: Ordinal or numeric rankings against different reference categories (e.g. '5th largest planet' vs '6th largest object in solar system after the Sun') are ENTAILMENT if logically and mathematically compatible (e.g., 6th object after Sun = 5th planet). Do not classify ranking claims as CONTRADICTION merely because ordinal numbers differ when the reference sets or scope qualifiers differ.
+            8. Classify as NEUTRAL ONLY if the topic/entity is completely absent and no temporal, domain, or factual conflict exists.
 
             Classify the claim using exactly one of these labels:
             - ENTAILMENT: The claim is supported or logically entailed by facts/relationships in the ground-truth context.
