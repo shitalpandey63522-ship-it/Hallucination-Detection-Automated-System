@@ -54,8 +54,8 @@ public class WebSearchService {
             headers.set("Accept-Language", "en-US,en;q=0.5");
 
             HttpEntity<Void> entity = new HttpEntity<>(headers);
-            HttpMethod getMethod = HttpMethod.GET;
-            ResponseEntity<String> response = restTemplate.exchange(uri, getMethod, entity, String.class);
+            @SuppressWarnings("null")
+            ResponseEntity<String> response = restTemplate.exchange(uri, HttpMethod.GET, entity, String.class);
 
             String html = response.getBody();
             if (html == null || html.isBlank()) {
