@@ -95,14 +95,14 @@ public class WikiService {
 
         WikipediaSearchResponse finalResult;
 
-        if (wikiValid && webValid) {
+        if (wikiValid && webValid && wikiResp != null && webResp != null) {
             String combinedTitle = wikiResp.title() + " & Live Web Search";
             String combinedUrl = wikiResp.url() != null ? wikiResp.url() : webResp.url();
             String combinedSummary = wikiResp.summary() + "\n\n" + webResp.summary();
             finalResult = new WikipediaSearchResponse(combinedTitle, combinedUrl, combinedSummary);
-        } else if (wikiValid) {
+        } else if (wikiValid && wikiResp != null) {
             finalResult = wikiResp;
-        } else if (webValid) {
+        } else if (webValid && webResp != null) {
             finalResult = webResp;
         } else {
             finalResult = new WikipediaSearchResponse(query, null, "Reference summary unavailable right now.");
