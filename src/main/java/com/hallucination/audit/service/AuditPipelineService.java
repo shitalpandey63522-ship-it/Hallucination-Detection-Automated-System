@@ -194,11 +194,15 @@ public class AuditPipelineService {
 
         if (fromRag && fromWiki) {
             combinedContext = "Local RAG Knowledge:\n" + ragContext + "\n\nReference Material:\n" + wikiContext;
-            String label = wikiTitle != null && wikiTitle.startsWith("Web Search:") ? "🌐 Live Web Search Engine" : "🌐 Wikipedia (" + wikiTitle + ")";
+            String label = wikiTitle != null && wikiTitle.contains("& Live Web Search") 
+                    ? "🌐 Wikipedia + 🌐 Live Web Search" 
+                    : (wikiTitle != null && wikiTitle.startsWith("Web Search:") ? "🌐 Live Web Search Engine" : "🌐 Wikipedia (" + wikiTitle + ")");
             sourceFlag = "📁 Local RAG Store + " + label;
         } else if (fromWiki) {
             combinedContext = wikiContext;
-            String label = wikiTitle != null && wikiTitle.startsWith("Web Search:") ? "🌐 Live Web Search Engine (" + wikiTitle + ")" : "🌐 Wikipedia (" + wikiTitle + ")";
+            String label = wikiTitle != null && wikiTitle.contains("& Live Web Search")
+                    ? "🌐 Wikipedia + 🌐 Live Web Search (" + wikiTitle + ")"
+                    : (wikiTitle != null && wikiTitle.startsWith("Web Search:") ? "🌐 Live Web Search Engine (" + wikiTitle + ")" : "🌐 Wikipedia (" + wikiTitle + ")");
             sourceFlag = label + " ⚠️ [Note: Not found in uploaded RAG database]";
         } else {
             combinedContext = ragContext;

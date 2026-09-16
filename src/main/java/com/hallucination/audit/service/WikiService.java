@@ -60,17 +60,59 @@ public class WikiService {
         });
     }
 
+    private final java.util.concurrent.ExecutorService searchExecutor = java.util.concurrent.Executors.newCachedThreadPool();
+
     public WikipediaSearchResponse search(String query) {
         if (query == null || query.isBlank()) {
             throw new IllegalArgumentException("Query must not be blank");
         }
 
         String cacheKey = query.trim().toLowerCase();
-        
         if (cache.containsKey(cacheKey)) {
             return cache.get(cacheKey);
         }
 
+        java.util.concurrent.CompletableFuture<WikipediaSearchResponse> wikiFuture = 
+                java.util.concurrent.CompletableFuture.supplyAsync(() -> fetchWikipedia(query), searchExecutor);
+        java.util.concurrent.CompletableFuture<WikipediaSearchResponse> webFuture = 
+                java.util.concurrent.CompletableFuture.supplyAsync(() -> webSearchService.search(query), searchExecutor);
+
+        try {
+            java.util.concurrent.CompletableFuture.allOf(wikiFuture, webFuture)
+                    .orTimeout(3000, java.util.concurrent.TimeUnit.MILLISECONDS)
+                    .exceptionally(ex -> null)
+                    .join();
+        } catch (Exception ignored) {}
+
+        WikipediaSearchResponse wikiResp = null;
+        try { wikiResp = wikiFuture.getNow(null); } catch (Exception ignored) {}
+
+        WikipediaSearchResponse webResp = null;
+        try { webResp = webFuture.getNow(null); } catch (Exception ignored) {}
+
+        boolean wikiValid = wikiResp != null && wikiResp.summary() != null && wikiResp.summary().length() > 30 && !wikiResp.summary().contains("unavailable");
+        boolean webValid = webResp != null && webResp.summary() != null && webResp.summary().length() > 30 && !webResp.summary().contains("unavailable");
+
+        WikipediaSearchResponse finalResult;
+
+        if (wikiValid && webValid) {
+            String combinedTitle = wikiResp.title() + " & Live Web Search";
+            String combinedUrl = wikiResp.url() != null ? wikiResp.url() : webResp.url();
+            String combinedSummary = wikiResp.summary() + "\n\n" + webResp.summary();
+            finalResult = new WikipediaSearchResponse(combinedTitle, combinedUrl, combinedSummary);
+        } else if (wikiValid) {
+            finalResult = wikiResp;
+        } else if (webValid) {
+            finalResult = webResp;
+        } else {
+            finalResult = new WikipediaSearchResponse(query, null, "Reference summary unavailable right now.");
+        }
+
+        cache.put(cacheKey, finalResult);
+        return finalResult;
+    }
+
+    private WikipediaSearchResponse fetchWikipedia(String query) {
         try {
             // First try to find the best-matching page titles using the search API (up to 3)
             java.net.URI searchUrl = UriComponentsBuilder
@@ -160,19 +202,13 @@ public class WikiService {
             }
 
             String finalSummary = aggregatedSummary.toString().trim();
-            if (finalSummary.isBlank() || "No summary available".equalsIgnoreCase(finalSummary) || finalSummary.length() < 30) {
-                WikipediaSearchResponse webResponse = webSearchService.search(query);
-                if (webResponse != null && webResponse.summary() != null && !webResponse.summary().isBlank() && !webResponse.summary().contains("unavailable")) {
-                    cache.put(cacheKey, webResponse);
-                    return webResponse;
-                }
+            if (finalSummary.isBlank()) {
+                finalSummary = "No summary available";
             }
 
-            WikipediaSearchResponse responseObj = new WikipediaSearchResponse(firstTitle, firstUrl, finalSummary);
-            cache.put(cacheKey, responseObj);
-            return responseObj;
+            return new WikipediaSearchResponse(firstTitle, firstUrl, finalSummary);
         } catch (Exception exception) {
-            // Failover 1: Try the Wikimedia REST API (often bypasses firewall blocks on main search API)
+            // Failover: Try the Wikimedia REST API
             try {
                 String restQuery = java.util.Arrays.stream(query.trim().split("\\s+"))
                         .map(w -> w.isEmpty() ? "" : Character.toUpperCase(w.charAt(0)) + w.substring(1).toLowerCase())
@@ -188,22 +224,11 @@ public class WikiService {
                             urlValue = (String) desktop.get("page");
                         }
                     }
-                    WikipediaSearchResponse responseObj = new WikipediaSearchResponse(title, urlValue, extract);
-                    cache.put(cacheKey, responseObj);
-                    return responseObj;
+                    return new WikipediaSearchResponse(title, urlValue, extract);
                 }
             } catch (Exception ignored) {}
 
-            // Failover 2: Perform Live Web Search via DuckDuckGo
-            try {
-                WikipediaSearchResponse webResponse = webSearchService.search(query);
-                if (webResponse != null && webResponse.summary() != null && !webResponse.summary().isBlank() && !webResponse.summary().contains("unavailable")) {
-                    cache.put(cacheKey, webResponse);
-                    return webResponse;
-                }
-            } catch (Exception ignored) {}
-
-            return new WikipediaSearchResponse(query, null, "Reference summary unavailable right now.");
+            return new WikipediaSearchResponse(query, null, "Wikipedia summary unavailable right now.");
         }
     }
 }
