@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hallucination.audit.ai.HallucinationAuditor;
 import com.hallucination.audit.ai.SentenceDecomposer;
 import com.hallucination.audit.ai.CitationExtractor;
-import com.hallucination.audit.ai.CitationValidator;
 import com.hallucination.audit.ai.TopicExtractor;
 import com.hallucination.audit.dto.AuditRequest;
 import com.hallucination.audit.dto.AuditResult;
