@@ -112,6 +112,55 @@ public class WikiService {
         return finalResult;
     }
 
+    public WikipediaSearchResponse searchMultipleParallel(java.util.List<String> queries) {
+        if (queries == null || queries.isEmpty()) {
+            return new WikipediaSearchResponse("Multi-Query Search", null, "No sub-queries provided.");
+        }
+        java.util.List<java.util.concurrent.CompletableFuture<WikipediaSearchResponse>> futures = queries.stream()
+                .filter(q -> q != null && !q.isBlank())
+                .map(q -> java.util.concurrent.CompletableFuture.supplyAsync(() -> search(q), searchExecutor))
+                .toList();
+
+        if (futures.isEmpty()) {
+            return new WikipediaSearchResponse("Multi-Query Search", null, "No valid sub-queries provided.");
+        }
+
+        try {
+            java.util.concurrent.CompletableFuture.allOf(futures.toArray(new java.util.concurrent.CompletableFuture[0]))
+                    .orTimeout(4000, java.util.concurrent.TimeUnit.MILLISECONDS)
+                    .exceptionally(ex -> null)
+                    .join();
+        } catch (Exception ignored) {}
+
+        StringBuilder mergedSummary = new StringBuilder();
+        String mainTitle = null;
+        String mainUrl = null;
+
+        for (var future : futures) {
+            WikipediaSearchResponse resp = null;
+            try { resp = future.getNow(null); } catch (Exception ignored) {}
+            if (resp != null && resp.summary() != null && !resp.summary().isBlank() && !resp.summary().contains("unavailable")) {
+                if (mainTitle == null) {
+                    mainTitle = resp.title();
+                    mainUrl = resp.url();
+                }
+                mergedSummary.append("=== Reference Facts: ").append(resp.title()).append(" ===\n")
+                        .append(resp.summary()).append("\n\n");
+            }
+        }
+
+        String finalSummary = mergedSummary.toString().trim();
+        if (finalSummary.isBlank()) {
+            return search(queries.get(0));
+        }
+
+        return new WikipediaSearchResponse(
+                mainTitle != null ? mainTitle + " (+ Recursive Sub-Queries)" : "Multi-Query Parallel Search",
+                mainUrl,
+                finalSummary
+        );
+    }
+
     private WikipediaSearchResponse fetchWikipedia(String query) {
         try {
             // First try to find the best-matching page titles using the search API (up to 3)

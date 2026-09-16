@@ -578,6 +578,9 @@ public class AuditPipelineService {
         return new ClaimEvaluation(claim, NliLabel.NEUTRAL, "The available context does not contain sufficient details to verify this claim.", null, evidence);
     }
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.hallucination.audit.ai.SubQueryExtractor subQueryExtractor;
+
     private List<com.hallucination.audit.dto.WikipediaSearchResponse> gatherEvidenceForClaim(String claim, String context) {
         if (context != null && !context.isBlank() && !context.equals(ProjectContext.DEFAULT_GROUND_TRUTH_CONTEXT)) {
             // Find specific matching sentence in groundTruthContext if possible
@@ -588,12 +591,29 @@ public class AuditPipelineService {
             return List.of(new com.hallucination.audit.dto.WikipediaSearchResponse("Ground Truth Context Reference", null, summary));
         }
         try {
-            String topic = extractTopic(claim);
-            if (topic == null || topic.isBlank()) {
-                return List.of();
+            String primaryTopic = extractTopic(claim);
+            List<String> queries = new ArrayList<>();
+            if (primaryTopic != null && !primaryTopic.isBlank()) {
+                queries.add(primaryTopic);
             }
-            com.hallucination.audit.dto.WikipediaSearchResponse resp = wikiService.search(topic);
-            if (resp == null || resp.summary() == null || resp.summary().isBlank() || resp.summary().length() <= 80) {
+            if (subQueryExtractor != null) {
+                try {
+                    List<String> subQueries = subQueryExtractor.extractSubQueries(claim);
+                    if (subQueries != null) {
+                        for (String sq : subQueries) {
+                            if (sq != null && !sq.isBlank() && !queries.contains(sq)) {
+                                queries.add(sq.trim());
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+            if (queries.isEmpty() && claim != null) {
+                queries.add(claim);
+            }
+
+            com.hallucination.audit.dto.WikipediaSearchResponse resp = wikiService.searchMultipleParallel(queries);
+            if (resp == null || resp.summary() == null || resp.summary().isBlank() || resp.summary().length() <= 50) {
                 return List.of();
             }
             return List.of(resp);
