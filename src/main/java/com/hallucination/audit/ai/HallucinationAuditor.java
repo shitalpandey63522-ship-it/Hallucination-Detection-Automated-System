@@ -6,7 +6,6 @@ import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 import dev.langchain4j.service.spring.AiService;
 
-import static com.hallucination.audit.ai.ProjectContext.FINAL_YEAR_PROJECT_CONTEXT;
 
 /**
  * Applies deterministic NLI classification against trusted ground-truth context.
