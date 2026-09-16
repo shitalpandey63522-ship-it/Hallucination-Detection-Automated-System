@@ -58,7 +58,7 @@ public class WikiService {
 
         try {
             // First try to find the best-matching page titles using the search API (up to 3)
-            String searchUrl = UriComponentsBuilder
+            java.net.URI searchUrl = UriComponentsBuilder
                     .fromHttpUrl("https://en.wikipedia.org/w/api.php")
                     .queryParam("action", "query")
                     .queryParam("format", "json")
@@ -66,8 +66,7 @@ public class WikiService {
                     .queryParam("srsearch", query)
                     .queryParam("srlimit", "3")
                     .build()
-                    .encode()
-                    .toUriString();
+                    .toUri();
 
             @SuppressWarnings("unchecked")
             Map<String, Object> searchResponse = (Map<String, Object>) restTemplate.getForObject(searchUrl, Map.class);
@@ -93,7 +92,7 @@ public class WikiService {
             String titlesParam = String.join("|", titles);
 
             // Now fetch the page extracts for the selected titles
-            String url = UriComponentsBuilder
+            java.net.URI url = UriComponentsBuilder
                     .fromHttpUrl("https://en.wikipedia.org/w/api.php")
                     .queryParam("action", "query")
                     .queryParam("format", "json")
@@ -104,8 +103,7 @@ public class WikiService {
                     .queryParam("redirects", "1")
                     .queryParam("titles", titlesParam)
                     .build()
-                    .encode()
-                    .toUriString();
+                    .toUri();
 
             @SuppressWarnings("unchecked")
             Map<String, Object> response = (Map<String, Object>) restTemplate.getForObject(url, Map.class);
