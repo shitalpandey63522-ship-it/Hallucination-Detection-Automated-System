@@ -11,16 +11,31 @@ import java.util.Map;
 public class WikiService {
 
     private final RestTemplate restTemplate;
+    private final WebSearchService webSearchService;
     private final java.util.Map<String, WikipediaSearchResponse> cache = new java.util.concurrent.ConcurrentHashMap<>();
 
     public WikiService() {
-        this("", 0);
+        this("", 0, new WebSearchService());
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public WikiService(WebSearchService webSearchService) {
+        this("", 0, webSearchService);
     }
 
     public WikiService(
             @org.springframework.beans.factory.annotation.Value("${audit.proxy.host:}") String proxyHost,
             @org.springframework.beans.factory.annotation.Value("${audit.proxy.port:0}") int proxyPort
     ) {
+        this(proxyHost, proxyPort, new WebSearchService());
+    }
+
+    public WikiService(
+            String proxyHost,
+            int proxyPort,
+            WebSearchService webSearchService
+    ) {
+        this.webSearchService = webSearchService != null ? webSearchService : new WebSearchService();
         org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(1500); // 1.5s connection timeout for fast response
         factory.setReadTimeout(2000);    // 2s read timeout
@@ -145,15 +160,19 @@ public class WikiService {
             }
 
             String finalSummary = aggregatedSummary.toString().trim();
-            if (finalSummary.isBlank()) {
-                finalSummary = "No summary available";
+            if (finalSummary.isBlank() || "No summary available".equalsIgnoreCase(finalSummary) || finalSummary.length() < 30) {
+                WikipediaSearchResponse webResponse = webSearchService.search(query);
+                if (webResponse != null && webResponse.summary() != null && !webResponse.summary().isBlank() && !webResponse.summary().contains("unavailable")) {
+                    cache.put(cacheKey, webResponse);
+                    return webResponse;
+                }
             }
 
             WikipediaSearchResponse responseObj = new WikipediaSearchResponse(firstTitle, firstUrl, finalSummary);
             cache.put(cacheKey, responseObj);
             return responseObj;
         } catch (Exception exception) {
-            // Failover: Try the Wikimedia REST API (often bypasses firewall blocks on main search API)
+            // Failover 1: Try the Wikimedia REST API (often bypasses firewall blocks on main search API)
             try {
                 String restQuery = java.util.Arrays.stream(query.trim().split("\\s+"))
                         .map(w -> w.isEmpty() ? "" : Character.toUpperCase(w.charAt(0)) + w.substring(1).toLowerCase())
@@ -161,7 +180,7 @@ public class WikiService {
                 String restUrl = "https://en.wikipedia.org/api/rest_v1/page/summary/" + java.net.URLEncoder.encode(restQuery, "UTF-8");
                 @SuppressWarnings("unchecked")
                 Map<String, Object> restResponse = (Map<String, Object>) restTemplate.getForObject(restUrl, Map.class);
-                if (restResponse != null && restResponse.get("extract") instanceof String extract) {
+                if (restResponse != null && restResponse.get("extract") instanceof String extract && extract.length() > 30) {
                     String title = restResponse.get("title") instanceof String t ? t : query;
                     String urlValue = null;
                     if (restResponse.get("content_urls") instanceof Map<?, ?> urls) {
@@ -173,10 +192,18 @@ public class WikiService {
                     cache.put(cacheKey, responseObj);
                     return responseObj;
                 }
-            } catch (Exception failoverException) {
-                // Ignore, proceed to return default error response
-            }
-            return new WikipediaSearchResponse(query, null, "Wikipedia summary unavailable right now.");
+            } catch (Exception ignored) {}
+
+            // Failover 2: Perform Live Web Search via DuckDuckGo
+            try {
+                WikipediaSearchResponse webResponse = webSearchService.search(query);
+                if (webResponse != null && webResponse.summary() != null && !webResponse.summary().isBlank() && !webResponse.summary().contains("unavailable")) {
+                    cache.put(cacheKey, webResponse);
+                    return webResponse;
+                }
+            } catch (Exception ignored) {}
+
+            return new WikipediaSearchResponse(query, null, "Reference summary unavailable right now.");
         }
     }
 }
