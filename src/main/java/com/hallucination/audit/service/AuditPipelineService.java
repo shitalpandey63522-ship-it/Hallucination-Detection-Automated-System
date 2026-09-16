@@ -427,21 +427,8 @@ public class AuditPipelineService {
     }
 
     private List<ClaimEvaluation> evaluateClaimsInParallel(List<String> claims, String groundTruthContext) {
-        String effectiveContext = groundTruthContext;
         List<String> safeClaims = claims == null ? List.of() : claims;
-        
-        // Optimize: If context is missing, fetch a single shared Wikipedia context for the entire batch 
-        // to prevent API rate limits (429) and timeouts from parallel Wikipedia queries.
-        if ((effectiveContext == null || effectiveContext.isBlank() || effectiveContext.equals(ProjectContext.DEFAULT_GROUND_TRUTH_CONTEXT)) && !safeClaims.isEmpty()) {
-            try {
-                com.hallucination.audit.dto.WikipediaSearchResponse wikiResp = wikiService.search(extractTopic(safeClaims.get(0)));
-                if (wikiResp != null && wikiResp.summary() != null && wikiResp.summary().length() > 50) {
-                    effectiveContext = wikiResp.summary().trim();
-                }
-            } catch (Exception ignored) {}
-        }
-        
-        final String finalContext = (effectiveContext != null && !effectiveContext.isBlank()) ? effectiveContext : ProjectContext.DEFAULT_GROUND_TRUTH_CONTEXT;
+        final String finalContext = (groundTruthContext != null && !groundTruthContext.isBlank()) ? groundTruthContext : ProjectContext.DEFAULT_GROUND_TRUTH_CONTEXT;
 
         List<CompletableFuture<ClaimEvaluation>> futures = safeClaims.stream()
             .limit(20) // Cap to max 20 claims for long inputs to prevent timeouts
@@ -607,6 +594,9 @@ public class AuditPipelineService {
                         }
                     }
                 } catch (Exception ignored) {}
+            }
+            if (claim != null && !claim.isBlank() && !queries.contains(claim)) {
+                queries.add(claim);
             }
             if (queries.isEmpty() && claim != null) {
                 queries.add(claim);
