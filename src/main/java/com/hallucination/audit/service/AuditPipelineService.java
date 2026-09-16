@@ -46,6 +46,9 @@ public class AuditPipelineService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private LocalVectorRagService localVectorRagService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private dev.langchain4j.model.chat.ChatLanguageModel chatLanguageModel;
+
     @Value("${gemini.api-key:}")
     private String geminiApiKey = "test-key";
 
@@ -140,52 +143,74 @@ public class AuditPipelineService {
             return Map.of("status", "error", "message", "Question must not be blank.");
         }
 
+        // Clean JSON payload if question parameter was passed as raw JSON string
+        String effectiveQuestion = question;
+        String effectiveTopic = topic;
+        if (question.trim().startsWith("{") && question.trim().endsWith("}")) {
+            try {
+                com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(question);
+                if (node.has("question") && !node.get("question").asText().isBlank()) {
+                    effectiveQuestion = node.get("question").asText();
+                }
+                if (node.has("topic") && !node.get("topic").asText().isBlank()) {
+                    effectiveTopic = node.get("topic").asText();
+                }
+            } catch (Exception ignored) {}
+        }
+
         String ragContext = null;
         String wikiContext = null;
         String wikiTitle = null;
         String wikiUrl = null;
 
-        // Step 1: Query Local Vector RAG Store (Search topic first, then fall back to all documents across topics)
-        if (localVectorRagService != null) {
-            String candidate = localVectorRagService.findRelevantContext(topic, question);
-            if (candidate == null || candidate.isBlank()) {
-                candidate = localVectorRagService.findRelevantContext("all", question);
+        // Step 1: Query Local Vector RAG Store if user specified topic or uploaded RAG documents exist
+        if (localVectorRagService != null && localVectorRagService.getIngestedDocuments() != null && !localVectorRagService.getIngestedDocuments().isEmpty()) {
+            String candidate = null;
+            if (effectiveTopic != null && !effectiveTopic.isBlank() && !effectiveTopic.equalsIgnoreCase("all")) {
+                candidate = localVectorRagService.findRelevantContext(effectiveTopic, effectiveQuestion);
+            }
+            if ((candidate == null || candidate.isBlank()) && (effectiveTopic != null && !effectiveTopic.isBlank())) {
+                candidate = localVectorRagService.findRelevantContext("all", effectiveQuestion);
             }
             if (candidate != null && !candidate.isBlank()) {
                 ragContext = candidate;
             }
         }
 
-        // Step 2: Query Live Wikipedia API (Always query Wikipedia so facts are always available)
+        // Step 2: Query Live Wikipedia / Web Search for facts
         try {
-            String extractedTopic = extractTopic(question);
+            String extractedTopic = extractTopic(effectiveQuestion);
             com.hallucination.audit.dto.WikipediaSearchResponse wikiResp = null;
             if (extractedTopic != null && !extractedTopic.isBlank()) {
                 wikiResp = wikiService.search(extractedTopic);
             }
-            if (wikiResp == null || wikiResp.summary() == null || wikiResp.summary().length() <= 50 || wikiResp.summary().toLowerCase().contains("unavailable")) {
-                wikiResp = wikiService.search(question);
+            if (wikiResp == null || wikiResp.summary() == null || wikiResp.summary().length() <= 50 
+                    || wikiResp.summary().toLowerCase().contains("unavailable") 
+                    || WikiService.isDisambiguationStub(wikiResp.summary())) {
+                wikiResp = wikiService.search(effectiveQuestion);
             }
 
-            if (wikiResp != null && wikiResp.summary() != null && wikiResp.summary().length() > 50 && !wikiResp.summary().toLowerCase().contains("unavailable")) {
+            if (wikiResp != null && wikiResp.summary() != null && wikiResp.summary().length() > 50 
+                    && !wikiResp.summary().toLowerCase().contains("unavailable") 
+                    && !WikiService.isDisambiguationStub(wikiResp.summary())) {
                 wikiContext = wikiResp.summary();
                 wikiTitle = wikiResp.title() != null ? wikiResp.title() : extractedTopic;
                 wikiUrl = wikiResp.url();
             }
         } catch (Exception ignored) {}
 
-        // Step 3: Zero-Hallucination Guardrail Check (If neither RAG nor Wikipedia has facts)
+        // Step 3: Zero-Hallucination Guardrail Check
         if ((ragContext == null || ragContext.isBlank()) && (wikiContext == null || wikiContext.isBlank())) {
             return Map.of(
-                "question", question,
-                "answer", "⚠️ Zero-Hallucination Shield: No verified reference facts found in Local Vector RAG or Wikipedia for this query. Refusing to guess to guarantee 0% hallucination.",
+                "question", effectiveQuestion,
+                "answer", "I could not find verified reference facts in local documents, Wikipedia, or web sources for this question. To guarantee 0% hallucination, I cannot provide an unverified answer.",
                 "verified", false,
                 "source", "None",
-                "contextUsed", "None (Zero-Hallucination Shield Engaged)"
+                "contextUsed", "None (Zero-Hallucination Shield Active)"
             );
         }
 
-        // Step 4: Synthesize Combined Grounded Response with Explicit Source Flagging
+        // Step 4: Synthesize Combined Grounded Response
         boolean fromRag = (ragContext != null && !ragContext.isBlank());
         boolean fromWiki = (wikiContext != null && !wikiContext.isBlank());
 
@@ -193,26 +218,20 @@ public class AuditPipelineService {
         String sourceFlag;
 
         if (fromRag && fromWiki) {
-            combinedContext = "Local RAG Knowledge:\n" + ragContext + "\n\nReference Material:\n" + wikiContext;
-            String label = wikiTitle != null && wikiTitle.contains("& Live Web Search") 
-                    ? "🌐 Wikipedia + 🌐 Live Web Search" 
-                    : (wikiTitle != null && wikiTitle.startsWith("Web Search:") ? "🌐 Live Web Search Engine" : "🌐 Wikipedia (" + wikiTitle + ")");
-            sourceFlag = "📁 Local RAG Store + " + label;
+            combinedContext = "Uploaded Document Reference:\n" + ragContext + "\n\nExternal Reference Material:\n" + wikiContext;
+            sourceFlag = "📁 Uploaded Document + 🌐 Wikipedia / Web Search (" + (wikiTitle != null ? wikiTitle : "Web") + ")";
         } else if (fromWiki) {
             combinedContext = wikiContext;
-            String label = wikiTitle != null && wikiTitle.contains("& Live Web Search")
-                    ? "🌐 Wikipedia + 🌐 Live Web Search (" + wikiTitle + ")"
-                    : (wikiTitle != null && wikiTitle.startsWith("Web Search:") ? "🌐 Live Web Search Engine (" + wikiTitle + ")" : "🌐 Wikipedia (" + wikiTitle + ")");
-            sourceFlag = label + " ⚠️ [Note: Not found in uploaded RAG database]";
+            sourceFlag = "🌐 Wikipedia / Web Search (" + (wikiTitle != null ? wikiTitle : "Web") + ")";
         } else {
             combinedContext = ragContext;
-            sourceFlag = "📁 Local RAG Vector Store (Uploaded Document)";
+            sourceFlag = "📁 Uploaded Local Document";
         }
 
-        String aiSynthesizedAnswer = synthesizeEmergingAiAnswer(question, combinedContext, sourceFlag, wikiUrl);
+        String aiSynthesizedAnswer = generateFluidZeroHallucinationAnswer(effectiveQuestion, combinedContext, sourceFlag, wikiUrl);
 
         return Map.of(
-            "question", question,
+            "question", effectiveQuestion,
             "answer", aiSynthesizedAnswer,
             "verified", true,
             "fromRag", fromRag,
@@ -223,30 +242,44 @@ public class AuditPipelineService {
         );
     }
 
-    private String synthesizeEmergingAiAnswer(String question, String rawContext, String sourceFlag, String sourceUrl) {
+    private String generateFluidZeroHallucinationAnswer(String question, String combinedContext, String sourceFlag, String sourceUrl) {
+        if (chatLanguageModel != null && geminiApiKey != null && !geminiApiKey.isBlank() && !geminiApiKey.equals("test-key")) {
+            try {
+                String prompt = """
+                    You are an expert AI assistant designed to deliver zero-hallucination, fluid, conversational answers.
+                    Answer the user's question clearly, naturally, and thoroughly, using strictly the facts provided in the reference context.
+
+                    STRICT GROUNDING INSTRUCTIONS:
+                    1. Deliver a natural, fluent, conversational answer (like an expert LLM assistant).
+                    2. Base all statements strictly on facts present in the reference context. Do not invent facts, numbers, dates, or details outside the context.
+                    3. If the context partially answers the question, answer what is supported and explicitly state what is not specified.
+                    4. Do not output raw internal meta-tags or debug markers.
+
+                    User Question: %s
+
+                    Retrieved Reference Context:
+                    %s
+                    """.formatted(question, combinedContext);
+
+                String response = chatLanguageModel.generate(prompt);
+                if (response != null && !response.isBlank()) {
+                    StringBuilder sb = new StringBuilder(response.trim());
+                    sb.append("\n\n---\n**Source:** ").append(sourceFlag);
+                    if (sourceUrl != null && !sourceUrl.isBlank()) {
+                        sb.append(" | [View Reference Source](").append(sourceUrl).append(")");
+                    }
+                    return sb.toString();
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // Deterministic Fallback: Clean markdown extraction without dropping relevant context
         StringBuilder sb = new StringBuilder();
-        sb.append("Answer based on retrieved reference material:\n\n");
-
-        if (rawContext.contains("Local RAG Knowledge:") && rawContext.contains("Wikipedia Reference:")) {
-            String[] parts = rawContext.split("Wikipedia Reference:");
-            String ragPart = parts[0].replace("Local RAG Knowledge:", "").trim();
-            String wikiPart = parts.length > 1 ? parts[1].trim() : "";
-
-            sb.append("📁 **Local RAG Database Result:**\n");
-            sb.append(formatConciseSection(ragPart, question)).append("\n\n");
-
-            sb.append("🌐 **Wikipedia Reference Result:**\n");
-            sb.append(formatConciseSection(wikiPart, question)).append("\n\n");
-        } else {
-            sb.append(formatConciseSection(rawContext, question)).append("\n\n");
-        }
-
-        sb.append("\nSource: ").append(sourceFlag);
+        sb.append(formatConciseSection(combinedContext, question)).append("\n\n");
+        sb.append("---\n**Source:** ").append(sourceFlag);
         if (sourceUrl != null && !sourceUrl.isBlank()) {
-            sb.append("\nSource URL: ").append(sourceUrl);
+            sb.append(" | [View Reference Source](").append(sourceUrl).append(")");
         }
-        sb.append("\nVerification: Reference material was found and displayed. Review the source before treating the answer as definitive.");
-
         return sb.toString();
     }
 
