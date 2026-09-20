@@ -46,7 +46,7 @@ public class FileTextExtractor {
     }
 
     public static String extractTextFromPdfBytes(byte[] bytes) {
-        try (PDDocument document = PDDocument.load(bytes, org.apache.pdfbox.io.MemoryUsageSetting.setupMixed(50 * 1024 * 1024))) {
+        try (PDDocument document = PDDocument.load(new ByteArrayInputStream(bytes), org.apache.pdfbox.io.MemoryUsageSetting.setupMixed(50 * 1024 * 1024))) {
             if (document.isEncrypted()) {
                 try {
                     document.setAllSecurityToBeRemoved(true);
