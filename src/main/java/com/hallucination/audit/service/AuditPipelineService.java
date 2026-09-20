@@ -17,9 +17,11 @@ import com.hallucination.audit.enums.NliLabel;
 import com.hallucination.audit.model.AuditLogEntity;
 import com.hallucination.audit.repository.AuditLogRepository;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.lang.NonNull;
@@ -288,6 +290,7 @@ public class AuditPipelineService {
             sb.append("No relevant reference facts were found in the offline RAG database for this query.\n");
         } else {
             String[] blocks = context.split("(?=### 📄 Document Reference:)");
+            boolean addedAnyBlock = false;
             for (String block : blocks) {
                 String trimmed = block.trim();
                 if (trimmed.isBlank()) continue;
@@ -296,14 +299,29 @@ public class AuditPipelineService {
                     if (lineBreak > 0) {
                         String header = trimmed.substring(0, lineBreak).trim();
                         String body = trimmed.substring(lineBreak).trim();
-                        sb.append("**").append(header.replace("### ", "")).append("**\n");
-                        sb.append(formatReadableBody(body, question)).append("\n\n");
+                        String formattedBody = formatReadableBody(body, question);
+                        if (!formattedBody.isBlank()) {
+                            sb.append("**").append(header.replace("### ", "")).append("**\n");
+                            sb.append(formattedBody).append("\n\n");
+                            addedAnyBlock = true;
+                        }
                     } else {
-                        sb.append(trimmed).append("\n\n");
+                        String formattedBody = formatReadableBody(trimmed, question);
+                        if (!formattedBody.isBlank()) {
+                            sb.append(formattedBody).append("\n\n");
+                            addedAnyBlock = true;
+                        }
                     }
                 } else {
-                    sb.append(formatReadableBody(trimmed, question)).append("\n\n");
+                    String formattedBody = formatReadableBody(trimmed, question);
+                    if (!formattedBody.isBlank()) {
+                        sb.append(formattedBody).append("\n\n");
+                        addedAnyBlock = true;
+                    }
                 }
+            }
+            if (!addedAnyBlock) {
+                sb.append("No specific reference facts matching your query were found in the offline RAG database.\n\n");
             }
         }
 
@@ -318,83 +336,68 @@ public class AuditPipelineService {
 
     private String formatReadableBody(String bodyText, String question) {
         if (bodyText == null || bodyText.isBlank()) return "";
+        
+        Set<String> queryWords = new HashSet<>(LocalNlpUtils.tokenizeAndClean(question != null ? question : ""));
+        Set<String> coreQueryWords = queryWords.stream()
+                .filter(w -> !w.equals("medicine") && !w.equals("medicines") && !w.equals("drug") && !w.equals("name") && !w.equals("list") && !w.equals("what") && !w.equals("give"))
+                .collect(Collectors.toSet());
+
         String[] sentences = bodyText.split("(?<=[.!?])\\s+|\\n+");
-        List<String> formattedSentences = new ArrayList<>();
+        List<SentenceScore> scoredSentences = new ArrayList<>();
+
         for (String s : sentences) {
             String clean = s.trim();
-            if (clean.length() > 10 && !clean.startsWith("###")) {
-                formattedSentences.add("• " + clean);
+            if (clean.length() <= 10 || clean.startsWith("###")) continue;
+
+            String lower = clean.toLowerCase();
+            // Filter out faculty listings & document header noise
+            if (lower.contains("professor") || lower.contains("department of") || lower.contains("civil hospital")
+                    || lower.contains("medical college") || lower.contains("date of the prescription") || lower.contains("validity of a prescription")) {
+                continue;
             }
-        }
-        if (formattedSentences.isEmpty()) {
-            return bodyText.trim();
-        }
-        return String.join("\n", formattedSentences.subList(0, Math.min(formattedSentences.size(), 8)));
-    }
 
-    private String formatConciseSection(String text, String question) {
-        if (text == null || text.isBlank()) return "No specific details found.";
-
-        String relevantText = Arrays.stream(text.split("\\n|(?<=[.!?])\\s+"))
-            .map(sentence -> sentence == null ? "" : sentence.trim())
-                .filter(sentence -> !sentence.isBlank())
-                .filter(sentence -> containsSharedWords(question, sentence))
-                .collect(java.util.stream.Collectors.joining("\n"));
-        if (!relevantText.isBlank()) {
-            text = relevantText;
-        }
-        
-        // If it's tabular markdown data (e.g. medicine table), extract direct medicine names and symptoms
-        if (text.contains("|")) {
-            List<String> lines = Arrays.asList(text.split("\n"));
-            List<String> medicines = new ArrayList<>();
-            for (String line : lines) {
-                if (line.contains("|") && !line.contains("Medicine Name") && !line.contains("---")) {
-                    String[] cols = line.split("\\|");
-                    if (cols.length >= 3) {
-                        String name = cols[2].replaceAll("\\*\\*", "").trim();
-                        String symptom = cols.length >= 4 ? cols[3].replaceAll("\\*\\*", "").trim() : "";
-                        if (!name.isBlank()) {
-                            medicines.add("• **" + name + "**" + (!symptom.isBlank() ? " — " + symptom : ""));
-                        }
-                    }
+            int score = 1; // base score for clean text
+            for (String qw : coreQueryWords) {
+                if (lower.contains(qw)) {
+                    score += 5; // heavy boost for core query concept (e.g. migraine)
                 }
             }
-            if (!medicines.isEmpty()) {
-                return "Matching Medicines & Usage:\n" + String.join("\n", medicines.subList(0, Math.min(medicines.size(), 8)));
+            if (lower.contains("medicine") || lower.contains("drug") || lower.contains("treatment") || lower.contains("indicated") || lower.contains("prophylaxis") || lower.contains("dose")) {
+                score += 2;
+            }
+
+            scoredSentences.add(new SentenceScore(clean, score));
+        }
+
+        if (scoredSentences.isEmpty()) {
+            return "";
+        }
+
+        // If core query words were specified, filter out sentences with zero core query match
+        if (!coreQueryWords.isEmpty()) {
+            List<SentenceScore> coreMatched = scoredSentences.stream().filter(ss -> ss.score >= 5).collect(Collectors.toList());
+            if (!coreMatched.isEmpty()) {
+                scoredSentences = coreMatched;
+            } else {
+                return "";
             }
         }
 
-        // Clean out textbook headers/author credentials from raw text
-        String cleaned = text.replaceAll("(?i)(PROF\\.\\s*&\\s*HEAD|DEPT\\.\\s*OF\\·MEDICINE|KGMC|LUCKNOW|MBBS|MRCP|FRCP|FICP|NOSISA|SYSTEM OF DIA IN OUTLINE).*", "").trim();
-        if (cleaned.length() < 20) {
-            cleaned = text;
-        }
+        // Sort by relevance score descending while preserving relative importance
+        scoredSentences.sort((a, b) -> Integer.compare(b.score, a.score));
 
-        String[] sentences = text.split("\n|(?<=[.!?])\\s+");
-        List<String> bulletFacts = new ArrayList<>();
-        for (String s : sentences) {
-            String trimmed = s.trim();
-            String lower = trimmed.toLowerCase();
-            if (trimmed.length() > 15 
-                    && !trimmed.startsWith("Local RAG") 
-                    && !trimmed.startsWith("Wikipedia Reference")
-                    && !lower.contains("ashok chandra")
-                    && !lower.contains("kgmc")
-                    && !lower.contains("emeritus")
-                    && !lower.contains("clinical medicine a system of diagnosis")
-                    && !lower.contains("nosisa")
-                    && !lower.contains("comprehensive 50-medicine")) {
-                bulletFacts.add("• " + trimmed);
-            }
-        }
+        List<String> bullets = scoredSentences.stream()
+                .limit(6)
+                .map(ss -> "• " + ss.text)
+                .distinct()
+                .collect(Collectors.toList());
 
-        if (!bulletFacts.isEmpty()) {
-            return String.join("\n", bulletFacts.subList(0, Math.min(bulletFacts.size(), 6)));
-        }
-
-        return cleaned;
+        return String.join("\n", bullets);
     }
+
+    private record SentenceScore(String text, int score) {}
+
+
 
     private String resolveContext(AuditRequest request) {
         String mode = request.contextSourceMode() != null ? request.contextSourceMode().toLowerCase().trim() : "auto";
@@ -810,8 +813,9 @@ public class AuditPipelineService {
     }
 
     private boolean hasNumericMismatch(String claim, String context) {
-        String cLower = claim == null ? "" : claim.toLowerCase();
-        String cxLower = context == null ? "" : context.toLowerCase();
+        if (claim == null || context == null) return false;
+        String cLower = claim.toLowerCase();
+        String cxLower = context.toLowerCase();
 
         // Do not flag numeric mismatch if ordinal reference categories or offset scopes differ (e.g. planet vs object after the sun)
         if ((cLower.contains("planet") && cxLower.contains("object") && (cxLower.contains("after the sun") || cxLower.contains("including the sun")))

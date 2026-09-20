@@ -5,7 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
+import com.hallucination.audit.dto.RagResponse;
 
 @RestController
 @RequestMapping("/api/rag")
@@ -18,31 +18,31 @@ public class RagController {
     }
 
     @PostMapping("/ingest")
-    public ResponseEntity<Map<String, Object>> ingestKnowledge(
+    public ResponseEntity<?> ingestKnowledge(
             @RequestParam(defaultValue = "General") String topic,
             @RequestParam(defaultValue = "user-doc") String docId,
             @RequestBody String text
     ) {
         if (text == null || text.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Text must not be empty"));
+            return ResponseEntity.badRequest().body(new RagResponse.ErrorResponse("error", "Text must not be empty"));
         }
         localVectorRagService.ingestDocument(topic, docId, text);
-        return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Document ingested into topic [" + topic + "] vector store successfully",
-                "topic", topic,
-                "docId", docId
+        return ResponseEntity.ok(new RagResponse.IngestResponse(
+                "success", 
+                "Document ingested into topic [" + topic + "] vector store successfully", 
+                topic, 
+                docId
         ));
     }
 
     @PostMapping(value = "/upload", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Map<String, Object>> uploadKnowledgeFile(
+    public ResponseEntity<?> uploadKnowledgeFile(
             @RequestParam(defaultValue = "General") String topic,
             @RequestParam(required = false) String docId,
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file
     ) {
         if (file == null || file.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Uploaded file must not be empty"));
+            return ResponseEntity.badRequest().body(new RagResponse.ErrorResponse("error", "Uploaded file must not be empty"));
         }
         try {
             String originalFilename = file.getOriginalFilename();
@@ -53,22 +53,22 @@ public class RagController {
             String extractedText = com.hallucination.audit.util.FileTextExtractor.extractText(file);
 
             if (extractedText == null || extractedText.isBlank() || extractedText.equalsIgnoreCase("Extracted document context from PDF file.")) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "status", "error", 
-                        "message", "Could not extract readable text from PDF. The document may be a scanned image-only PDF (without embedded text), password-protected, or corrupted. Please run OCR or upload a text-selectable PDF/DOCX file."
+                return ResponseEntity.badRequest().body(new RagResponse.ErrorResponse(
+                        "error", 
+                        "Could not extract readable text from PDF. The document may be a scanned image-only PDF (without embedded text), password-protected, or corrupted. Please run OCR or upload a text-selectable PDF/DOCX file."
                 ));
             }
 
             String safeFilename = (originalFilename != null && !originalFilename.isBlank()) ? originalFilename : "uploaded-file";
             localVectorRagService.ingestDocument(topic, effectiveDocId, extractedText);
-            return ResponseEntity.ok(Map.of(
-                    "status", "success",
-                    "message", "File [" + safeFilename + "] (" + (extractedText.length() / 1024) + " KB text extracted) ingested into topic [" + topic + "] vector database successfully!",
-                    "topic", topic,
-                    "docId", effectiveDocId
+            return ResponseEntity.ok(new RagResponse.UploadResponse(
+                    "success",
+                    "File [" + safeFilename + "] (" + (extractedText.length() / 1024) + " KB text extracted) ingested into topic [" + topic + "] vector database successfully!",
+                    topic,
+                    effectiveDocId
             ));
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("status", "error", "message", "File processing failed: " + e.getMessage()));
+            return ResponseEntity.status(500).body(new RagResponse.ErrorResponse("error", "File processing failed: " + e.getMessage()));
         }
     }
 
@@ -83,27 +83,27 @@ public class RagController {
     }
 
     @DeleteMapping("/clear")
-    public ResponseEntity<Map<String, Object>> clearVectorDatabase(
+    public ResponseEntity<RagResponse.ClearResponse> clearVectorDatabase(
             @RequestParam(required = false) String topic
     ) {
         localVectorRagService.clearTopicStore(topic);
         String target = (topic == null || topic.isBlank() || topic.equalsIgnoreCase("all")) ? "All Topics" : topic;
-        return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Vector database for [" + target + "] cleared successfully!"
+        return ResponseEntity.ok(new RagResponse.ClearResponse(
+                "success",
+                "Vector database for [" + target + "] cleared successfully!"
         ));
     }
 
     @GetMapping("/search")
-    public ResponseEntity<Map<String, Object>> searchKnowledge(
+    public ResponseEntity<RagResponse.SearchResponse> searchKnowledge(
             @RequestParam(required = false) String topic,
             @RequestParam String query
     ) {
         String match = localVectorRagService.findRelevantContext(topic, query);
-        return ResponseEntity.ok(Map.of(
-                "topic", topic != null ? topic : "All Topics",
-                "query", query,
-                "matchedContext", match != null ? match : "No vector similarity match found"
+        return ResponseEntity.ok(new RagResponse.SearchResponse(
+                topic != null ? topic : "All Topics",
+                query,
+                match != null ? match : "No vector similarity match found"
         ));
     }
 }

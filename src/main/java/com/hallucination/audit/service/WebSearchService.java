@@ -13,16 +13,20 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import java.time.Duration;
 
 @Service
 public class WebSearchService {
 
     private final RestTemplate restTemplate;
-    private final Map<String, WikipediaSearchResponse> cache = new ConcurrentHashMap<>();
+    private final Cache<String, WikipediaSearchResponse> cache = Caffeine.newBuilder()
+        .maximumSize(500)
+        .expireAfterWrite(Duration.ofMinutes(30))
+        .build();
 
     public WebSearchService() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
@@ -37,8 +41,9 @@ public class WebSearchService {
         }
 
         String cacheKey = query.trim().toLowerCase();
-        if (cache.containsKey(cacheKey)) {
-            return cache.get(cacheKey);
+        WikipediaSearchResponse cached = cache.getIfPresent(cacheKey);
+        if (cached != null) {
+            return cached;
         }
 
         try {

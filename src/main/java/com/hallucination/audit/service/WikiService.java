@@ -6,13 +6,19 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.Map;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import java.time.Duration;
 
 @Service
 public class WikiService {
 
     private final RestTemplate restTemplate;
     private final WebSearchService webSearchService;
-    private final java.util.Map<String, WikipediaSearchResponse> cache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Cache<String, WikipediaSearchResponse> cache = Caffeine.newBuilder()
+        .maximumSize(500)
+        .expireAfterWrite(Duration.ofMinutes(30))
+        .build();
 
     public WikiService() {
         this("", 0, new WebSearchService());
@@ -78,8 +84,9 @@ public class WikiService {
         }
 
         String cacheKey = query.trim().toLowerCase();
-        if (cache.containsKey(cacheKey)) {
-            return cache.get(cacheKey);
+        WikipediaSearchResponse cached = cache.getIfPresent(cacheKey);
+        if (cached != null) {
+            return cached;
         }
 
         java.util.concurrent.CompletableFuture<WikipediaSearchResponse> wikiFuture = 

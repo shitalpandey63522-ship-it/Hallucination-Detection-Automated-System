@@ -156,29 +156,32 @@ public class LocalVectorRagService {
 
         final String activeDocFilter = filterDocId;
 
-        // Perform Hybrid Vector + Keyword Rank Fusion Scoring
+        // Perform Hybrid Vector + Keyword Rank Fusion Scoring with noise filtering
+        boolean queryHasCoreNouns = hasCoreNounsInQuery(queryText);
+
         List<String> validTexts = matches.stream()
                 .filter(match -> {
                     if (activeDocFilter == null) return true;
                     String docId = match.embedded().metadata().getString("docId");
                     return docId != null && docId.toLowerCase().contains(activeDocFilter);
                 })
+                .filter(match -> !isNoiseOrFacultyChunk(match.embedded().text()))
                 .filter(match -> hasEnoughMeaningfulOverlap(queryText, match.embedded().text()))
                 .map(match -> {
                     double vectorScore = match.score();
                     double keywordSynonymScore = calculateSynonymKeywordScore(queryText, match.embedded().text());
-                    double hybridScore = (0.5 * vectorScore) + (0.5 * keywordSynonymScore);
-                    return new HybridMatch(match, vectorScore, hybridScore, keywordSynonymScore);
+                    double coreTopicBonus = calculateCoreTopicBonus(queryText, match.embedded().text());
+                    double hybridScore = (0.4 * vectorScore) + (0.4 * keywordSynonymScore) + (0.2 * coreTopicBonus);
+                    return new HybridMatch(match, vectorScore, hybridScore, keywordSynonymScore, coreTopicBonus);
                 })
-                .filter(hm -> hm.hybridScore >= 0.18 || hm.vectorScore >= 0.30 || hm.keywordSynonymScore >= 0.25)
                 .filter(hm -> {
-                    String lowerT = hm.match.embedded().text().toLowerCase();
-                    if (lowerT.contains("prof. ashok chandra") && !lowerT.contains("paracetamol") && !lowerT.contains("aspirin") && !lowerT.contains("ibuprofen") && !lowerT.contains("sumatriptan")) {
+                    if (queryHasCoreNouns && hm.coreTopicBonus == 0.0 && hm.vectorScore < 0.38) {
                         return false;
                     }
-                    return true;
+                    return hm.hybridScore >= 0.15 || hm.vectorScore >= 0.30 || hm.keywordSynonymScore >= 0.20;
                 })
                 .sorted(Comparator.comparingDouble((HybridMatch hm) -> hm.hybridScore).reversed())
+                .limit(6)
                 .map(hm -> {
                     String text = hm.match.embedded().text();
                     String docId = hm.match.embedded().metadata().getString("docId");
@@ -192,6 +195,50 @@ public class LocalVectorRagService {
                 .collect(Collectors.toList());
 
         return validTexts.isEmpty() ? null : String.join("\n\n", validTexts);
+    }
+
+    private static boolean isNoiseOrFacultyChunk(String text) {
+        if (text == null || text.isBlank()) return true;
+        String lower = text.toLowerCase();
+
+        int facultyScore = 0;
+        if (lower.contains("professor")) facultyScore++;
+        if (lower.contains("department of")) facultyScore++;
+        if (lower.contains("civil hospital")) facultyScore++;
+        if (lower.contains("medical college")) facultyScore++;
+        if (lower.contains("additional professor")) facultyScore++;
+        if (lower.contains("assistant professor")) facultyScore++;
+        if (lower.contains("associate professor")) facultyScore++;
+        if (lower.contains("head of unit")) facultyScore++;
+
+        return facultyScore >= 2;
+    }
+
+    private static boolean hasCoreNounsInQuery(String queryText) {
+        Set<String> queryTokens = meaningfulTokens(queryText);
+        return queryTokens.stream()
+                .anyMatch(t -> !t.equals("medicine") && !t.equals("medicines") && !t.equals("drug") && !t.equals("drugs")
+                          && !t.equals("name") && !t.equals("list") && !t.equals("what") && !t.equals("give"));
+    }
+
+    private static double calculateCoreTopicBonus(String queryText, String candidateText) {
+        Set<String> queryTokens = meaningfulTokens(queryText);
+        Set<String> candidateTokens = meaningfulTokens(candidateText);
+        if (queryTokens.isEmpty() || candidateTokens.isEmpty()) return 0.0;
+
+        // Specific non-generic query nouns get bonus if present in candidate
+        Set<String> coreNouns = queryTokens.stream()
+                .filter(t -> !t.equals("medicine") && !t.equals("medicines") && !t.equals("drug") && !t.equals("drugs")
+                          && !t.equals("name") && !t.equals("list") && !t.equals("what") && !t.equals("give"))
+                .collect(Collectors.toSet());
+
+        if (coreNouns.isEmpty()) return 0.0;
+
+        long matchedNouns = coreNouns.stream()
+                .filter(noun -> candidateTokens.stream().anyMatch(cToken -> cToken.contains(noun) || noun.contains(cToken)))
+                .count();
+
+        return (double) matchedNouns / coreNouns.size();
     }
 
     private static double calculateSynonymKeywordScore(String queryText, String candidateText) {
@@ -209,7 +256,7 @@ public class LocalVectorRagService {
         return (double) matches / Math.max(1, queryTokens.size());
     }
 
-    private record HybridMatch(EmbeddingMatch<TextSegment> match, double vectorScore, double hybridScore, double keywordSynonymScore) {}
+    private record HybridMatch(EmbeddingMatch<TextSegment> match, double vectorScore, double hybridScore, double keywordSynonymScore, double coreTopicBonus) {}
 
     private static boolean hasEnoughMeaningfulOverlap(String queryText, String candidateText) {
         return calculateSynonymKeywordScore(queryText, candidateText) > 0;
@@ -220,7 +267,7 @@ public class LocalVectorRagService {
         for (String t : tokens) {
             String lower = t.toLowerCase();
             if (lower.equals("medicine") || lower.equals("medicines") || lower.equals("medication") || lower.equals("drug") || lower.equals("drugs")) {
-                expanded.addAll(List.of("medicine", "medicines", "drug", "drugs", "medication", "treatment", "indicated", "pharmacology", "pill", "tablet", "usage", "dose", "dosage", "remedy"));
+                expanded.addAll(List.of("medicine", "medicines", "drug", "drugs", "medication", "medications", "pill", "tablet", "capsule", "pharmacology"));
             } else if (lower.equals("migraine") || lower.equals("migraines")) {
                 expanded.addAll(List.of("migraine", "migraines", "headache", "headaches", "cephalalgia", "vascular"));
             } else if (lower.equals("fever") || lower.equals("fevers")) {
