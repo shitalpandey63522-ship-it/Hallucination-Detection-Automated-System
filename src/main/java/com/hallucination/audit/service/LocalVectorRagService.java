@@ -111,24 +111,34 @@ public class LocalVectorRagService {
         return findRelevantContext(null, queryText);
     }
 
-    public String findRelevantContext(String topic, String queryText) {
+    public String findRelevantContext(String targetDocIdOrTopic, String queryText) {
         if (queryText == null || queryText.isBlank()) {
             return null;
         }
 
         EmbeddingStore<TextSegment> storeToSearch = globalEmbeddingStore;
-        if (topic != null && !topic.isBlank() && !topic.equalsIgnoreCase("all")) {
-            EmbeddingStore<TextSegment> topicStore = topicStores.get(topic.trim().toLowerCase());
+        String filterDocId = null;
+
+        if (targetDocIdOrTopic != null && !targetDocIdOrTopic.isBlank() && !targetDocIdOrTopic.equalsIgnoreCase("all")) {
+            String targetClean = targetDocIdOrTopic.trim().toLowerCase();
+            // Check if target matches a specific topic store
+            EmbeddingStore<TextSegment> topicStore = topicStores.get(targetClean);
             if (topicStore != null) {
                 storeToSearch = topicStore;
+            } else {
+                // Check if target matches a specific document ID in persistentDocs
+                boolean matchesDocId = persistentDocs.stream().anyMatch(doc -> doc.docId().equalsIgnoreCase(targetClean) || doc.docId().toLowerCase().contains(targetClean));
+                if (matchesDocId) {
+                    filterDocId = targetClean;
+                }
             }
         }
 
         var queryEmbedding = embeddingModel.embed(queryText).content();
         EmbeddingSearchRequest request = EmbeddingSearchRequest.builder()
                 .queryEmbedding(queryEmbedding)
-                .maxResults(10)
-                .minScore(0.40)
+                .maxResults(15)
+                .minScore(0.20)
                 .build();
 
         EmbeddingSearchResult<TextSegment> result = storeToSearch.search(request);
@@ -143,8 +153,15 @@ public class LocalVectorRagService {
             return null;
         }
 
+        final String activeDocFilter = filterDocId;
+
         List<String> validTexts = matches.stream()
-                .filter(m -> m.score() >= 0.35)
+                .filter(m -> m.score() >= 0.20)
+                .filter(match -> {
+                    if (activeDocFilter == null) return true;
+                    String docId = match.embedded().metadata().getString("docId");
+                    return docId != null && docId.toLowerCase().contains(activeDocFilter);
+                })
                 .filter(match -> hasEnoughMeaningfulOverlap(queryText, match.embedded().text()))
                 .filter(match -> {
                     String lowerT = match.embedded().text().toLowerCase();
@@ -170,20 +187,40 @@ public class LocalVectorRagService {
 
     private static boolean hasEnoughMeaningfulOverlap(String queryText, String candidateText) {
         Set<String> queryTokens = meaningfulTokens(queryText);
+        Set<String> expandedQueryTokens = expandSynonyms(queryTokens);
         Set<String> candidateTokens = meaningfulTokens(candidateText);
+
         if (queryTokens.isEmpty()) {
             return false;
         }
 
-        long matchingTokens = queryTokens.stream()
+        long matchingTokens = expandedQueryTokens.stream()
                 .filter(queryToken -> candidateTokens.stream().anyMatch(candidateToken ->
                         queryToken.equals(candidateToken)
                                 || (queryToken.length() >= 4 && candidateToken.startsWith(queryToken))
                                 || (candidateToken.length() >= 4 && queryToken.startsWith(candidateToken))))
                 .count();
 
-        int requiredMatches = queryTokens.size() >= 3 ? 2 : 1;
-        return matchingTokens >= requiredMatches;
+        return matchingTokens >= 1;
+    }
+
+    private static Set<String> expandSynonyms(Set<String> tokens) {
+        Set<String> expanded = new HashSet<>(tokens);
+        for (String t : tokens) {
+            String lower = t.toLowerCase();
+            if (lower.equals("medicine") || lower.equals("medicines") || lower.equals("medication") || lower.equals("drug") || lower.equals("drugs")) {
+                expanded.addAll(List.of("medicine", "medicines", "drug", "drugs", "medication", "treatment", "indicated", "pharmacology", "pill", "tablet", "usage", "dose", "dosage", "remedy"));
+            } else if (lower.equals("migraine") || lower.equals("migraines")) {
+                expanded.addAll(List.of("migraine", "migraines", "headache", "headaches", "cephalalgia", "vascular"));
+            } else if (lower.equals("fever") || lower.equals("fevers")) {
+                expanded.addAll(List.of("fever", "fevers", "pyrexia", "temperature", "febrile", "antipyretic"));
+            } else if (lower.equals("pain") || lower.equals("pains")) {
+                expanded.addAll(List.of("pain", "pains", "ache", "aches", "analgesic", "discomfort"));
+            } else if (lower.equals("cause") || lower.equals("causes") || lower.equals("reason")) {
+                expanded.addAll(List.of("cause", "causes", "etiology", "origin", "driver", "mechanism"));
+            }
+        }
+        return expanded;
     }
 
     private static Set<String> meaningfulTokens(String text) {
