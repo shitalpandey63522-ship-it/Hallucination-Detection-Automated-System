@@ -52,15 +52,18 @@ public class RagController {
 
             String extractedText = com.hallucination.audit.util.FileTextExtractor.extractText(file);
 
-            if (extractedText.isBlank()) {
-                return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Could not extract readable text from file"));
+            if (extractedText == null || extractedText.isBlank() || extractedText.equalsIgnoreCase("Extracted document context from PDF file.")) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "status", "error", 
+                        "message", "Could not extract readable text from PDF. The document may be a scanned image-only PDF (without embedded text), password-protected, or corrupted. Please run OCR or upload a text-selectable PDF/DOCX file."
+                ));
             }
 
             String safeFilename = (originalFilename != null && !originalFilename.isBlank()) ? originalFilename : "uploaded-file";
             localVectorRagService.ingestDocument(topic, effectiveDocId, extractedText);
             return ResponseEntity.ok(Map.of(
                     "status", "success",
-                    "message", "File [" + safeFilename + "] ingested into topic [" + topic + "] vector database successfully!",
+                    "message", "File [" + safeFilename + "] (" + (extractedText.length() / 1024) + " KB text extracted) ingested into topic [" + topic + "] vector database successfully!",
                     "topic", topic,
                     "docId", effectiveDocId
             ));

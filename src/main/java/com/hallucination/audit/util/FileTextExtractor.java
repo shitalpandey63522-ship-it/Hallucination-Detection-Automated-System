@@ -25,14 +25,19 @@ public class FileTextExtractor {
 
         if (filename.endsWith(".pdf")) {
             try (InputStream is = file.getInputStream();
-                 PDDocument document = PDDocument.load(is)) {
+                 PDDocument document = PDDocument.load(is, org.apache.pdfbox.io.MemoryUsageSetting.setupMixed(50 * 1024 * 1024))) {
+                if (document.isEncrypted()) {
+                    try {
+                        document.setAllSecurityToBeRemoved(true);
+                    } catch (Exception ignored) {}
+                }
                 PDFTextStripper stripper = new PDFTextStripper();
                 String text = stripper.getText(document);
                 if (text != null && !text.isBlank()) {
                     return sanitizeText(text);
                 }
             } catch (Exception ignored) {}
-            return extractTextFromFallback(file.getBytes());
+            return extractTextFromFallback(bytes);
         } else if (filename.endsWith(".docx")) {
             return extractTextFromDocxBytes(file.getBytes());
         } else {
@@ -41,7 +46,12 @@ public class FileTextExtractor {
     }
 
     public static String extractTextFromPdfBytes(byte[] bytes) {
-        try (PDDocument document = PDDocument.load(bytes)) {
+        try (PDDocument document = PDDocument.load(bytes, org.apache.pdfbox.io.MemoryUsageSetting.setupMixed(50 * 1024 * 1024))) {
+            if (document.isEncrypted()) {
+                try {
+                    document.setAllSecurityToBeRemoved(true);
+                } catch (Exception ignored) {}
+            }
             PDFTextStripper stripper = new PDFTextStripper();
             String text = stripper.getText(document);
             if (text != null && !text.isBlank()) {
@@ -82,7 +92,9 @@ public class FileTextExtractor {
     }
 
     private static String extractTextFromFallback(byte[] bytes) {
-        String raw = new String(bytes, StandardCharsets.ISO_8859_1);
+        if (bytes == null || bytes.length == 0) return "";
+        int limit = Math.min(bytes.length, 5 * 1024 * 1024);
+        String raw = new String(bytes, 0, limit, StandardCharsets.ISO_8859_1);
         StringBuilder sb = new StringBuilder();
         Pattern textPattern = Pattern.compile("\\(([^\\)]{3,})\\)");
         Matcher matcher = textPattern.matcher(raw);
