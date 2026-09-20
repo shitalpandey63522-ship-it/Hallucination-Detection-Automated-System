@@ -1,12 +1,10 @@
-# Stage 1: Build Spring Boot Jar
+# Stage 1: Build Spring Boot Jar using Alpine Maven
 FROM maven:3.9.6-eclipse-temurin-17-alpine AS builder
 WORKDIR /app
 COPY pom.xml .
-COPY mvnw .
-COPY .mvn .mvn
-RUN ./mvnw dependency:go-offline -B || true
+RUN mvn dependency:go-offline -B || true
 COPY src src
-RUN ./mvnw clean package -DskipTests
+RUN mvn clean package -DskipTests=true
 
 # Stage 2: Lightweight Alpine JRE Runtime
 FROM eclipse-temurin:17-jre-alpine
