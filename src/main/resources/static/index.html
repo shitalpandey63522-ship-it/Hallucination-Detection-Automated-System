@@ -31,29 +31,36 @@
     
     <!-- Sidebar Controls & Logs -->
     <div class="sidebar">
-      <div>
-        <h3 class="sidebar-section-title">Example Presets</h3>
-        <div id="presets-container">
-          <div class="preset-card" onclick="loadPreset('ai-fake')">
-            <strong>AI Response with Fabrications</strong>
-            Contains claims and citation markers with post-mortem or future publication dates.
-          </div>
-          <div class="preset-card" onclick="loadPreset('science-real')">
-            <strong>Factual & Validated Content</strong>
-            Factual statements that match the retrieved reference context.
-          </div>
-          <div class="preset-card" onclick="loadPreset('contradict')">
-            <strong>Contradictory Statements</strong>
-            Presents claims that directly conflict with reference facts.
+      <button class="mobile-sidebar-toggle" onclick="toggleMobileSidebar()">
+        <span>⚡ Example Presets & Recent Scans</span>
+        <span id="mobile-sidebar-arrow">▼</span>
+      </button>
+
+      <div class="sidebar-content">
+        <div>
+          <h3 class="sidebar-section-title">Example Presets</h3>
+          <div id="presets-container">
+            <div class="preset-card" onclick="loadPreset('ai-fake')">
+              <strong>AI Response with Fabrications</strong>
+              Contains claims and citation markers with post-mortem or future publication dates.
+            </div>
+            <div class="preset-card" onclick="loadPreset('science-real')">
+              <strong>Factual & Validated Content</strong>
+              Factual statements that match the retrieved reference context.
+            </div>
+            <div class="preset-card" onclick="loadPreset('contradict')">
+              <strong>Contradictory Statements</strong>
+              Presents claims that directly conflict with reference facts.
+            </div>
           </div>
         </div>
-      </div>
 
-      <div>
-        <h3 class="sidebar-section-title">Recent Scans</h3>
-        <div id="history-list" class="history-list">
-          <!-- Populated from API -->
-          <div style="font-size:12px; color:var(--muted)">No previous scans found.</div>
+        <div>
+          <h3 class="sidebar-section-title">Recent Scans</h3>
+          <div id="history-list" class="history-list">
+            <!-- Populated from API -->
+            <div style="font-size:12px; color:var(--muted)">No previous scans found.</div>
+          </div>
         </div>
       </div>
     </div>

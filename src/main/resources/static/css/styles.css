@@ -831,7 +831,38 @@
       border-radius: 2px;
     }
 
-    @media (max-width: 1100px) {
+    /* Mobile Navigation & Responsive Breakpoints */
+    .mobile-sidebar-toggle {
+      display: none;
+      width: 100%;
+      background: rgba(168, 85, 247, 0.1);
+      border: 1px solid var(--border);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.25s ease;
+    }
+
+    .mobile-sidebar-toggle:hover {
+      background: rgba(168, 85, 247, 0.2);
+    }
+
+    /* Tablet & Desktop Layout (< 992px) */
+    @media (max-width: 992px) {
+      header {
+        padding: 14px 24px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .logo-title {
+        font-size: 18px;
+      }
       .app-container {
         grid-template-columns: 1fr;
         height: auto;
@@ -839,12 +870,175 @@
       .sidebar {
         border-right: none;
         border-bottom: 1px solid var(--border);
+        padding: 16px;
+        gap: 12px;
+      }
+      .mobile-sidebar-toggle {
+        display: flex;
+      }
+      .sidebar-content {
+        display: none;
+      }
+      .sidebar.mobile-open .sidebar-content {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        padding-top: 10px;
+      }
+      .workspace {
+        padding: 24px;
       }
       .results-grid {
         grid-template-columns: 1fr;
+        gap: 24px;
       }
       .stats-panel {
         position: relative;
         top: 0;
+      }
+    }
+
+    /* Mobile Screens (< 768px) */
+    @media (max-width: 768px) {
+      header {
+        padding: 12px 16px;
+      }
+      .logo-container {
+        gap: 8px;
+      }
+      .logo-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
+      }
+      .logo-title {
+        font-size: 15px;
+      }
+      .badge-premium {
+        display: none;
+      }
+
+      .workspace {
+        padding: 16px 12px;
+      }
+      .workspace-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .workspace-header > div:last-child {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .workspace-header button {
+        flex: 1;
+        text-align: center;
+        padding: 8px 10px;
+        font-size: 0.75rem !important;
+      }
+
+      .upload-drag-area {
+        padding: 16px 12px;
+        font-size: 12px;
+      }
+
+      .editor-container textarea {
+        min-height: 140px;
+        padding: 12px;
+        font-size: 14px;
+      }
+
+      .context-input-container > div {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      #context-source-mode {
+        width: 100%;
+        font-size: 0.75rem;
+      }
+
+      .panel-footer {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+      .action-buttons {
+        width: 100%;
+        display: flex;
+        gap: 8px;
+      }
+      .action-buttons .btn {
+        flex: 1;
+        justify-content: center;
+        padding: 12px;
+        font-size: 14px;
+      }
+
+      /* Analysis Tabs */
+      .analysis-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 6px;
+        gap: 6px;
+      }
+      .tab-btn {
+        white-space: nowrap;
+        font-size: 11px;
+        padding: 8px 12px;
+      }
+
+      /* QA Mode Panel Mobile Sizing */
+      #qa-mode-panel {
+        padding: 14px;
+      }
+      #qa-mode-panel > div:nth-child(2) {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+      #qa-topic-input, #qa-submit-btn {
+        width: 100%;
+      }
+
+      /* Highlighting intro legend */
+      .highlight-intro {
+        flex-wrap: wrap;
+        gap: 8px;
+        font-size: 11px;
+      }
+
+      /* Bibliography Table Mobile Responsive Layout */
+      .bibliography-table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+    }
+
+    /* Small Mobile Screens (< 480px) */
+    @media (max-width: 480px) {
+      .workspace-header h2 {
+        font-size: 18px;
+      }
+      .workspace-header p {
+        font-size: 12px;
+      }
+      .preset-card {
+        padding: 12px;
+        font-size: 12px;
+      }
+      .evidence-card {
+        padding: 14px;
+      }
+      .toast {
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        text-align: center;
+        font-size: 13px;
+        padding: 10px 16px;
       }
     }

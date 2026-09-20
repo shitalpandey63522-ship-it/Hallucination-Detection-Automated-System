@@ -1155,3 +1155,14 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
       );
       renderModalRagDocs(filtered);
     }
+
+    function toggleMobileSidebar() {
+      const sidebar = document.querySelector('.sidebar');
+      const arrow = document.getElementById('mobile-sidebar-arrow');
+      if (sidebar) {
+        sidebar.classList.toggle('mobile-open');
+        if (arrow) {
+          arrow.textContent = sidebar.classList.contains('mobile-open') ? '▲' : '▼';
+        }
+      }
+    }
