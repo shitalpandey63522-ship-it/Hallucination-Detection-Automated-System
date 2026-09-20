@@ -144,20 +144,28 @@ public class LocalVectorRagService {
         }
 
         List<String> validTexts = matches.stream()
-                .filter(m -> m.score() >= 0.40)
-                .map(match -> match.embedded().text())
-            .filter(textSegment -> hasEnoughMeaningfulOverlap(queryText, textSegment))
-                .filter(textSegment -> {
-                    String lowerT = textSegment.toLowerCase();
+                .filter(m -> m.score() >= 0.35)
+                .filter(match -> hasEnoughMeaningfulOverlap(queryText, match.embedded().text()))
+                .filter(match -> {
+                    String lowerT = match.embedded().text().toLowerCase();
                     if (lowerT.contains("prof. ashok chandra") && !lowerT.contains("paracetamol") && !lowerT.contains("aspirin") && !lowerT.contains("ibuprofen") && !lowerT.contains("sumatriptan")) {
                         return false;
                     }
                     return true;
                 })
+                .map(match -> {
+                    String text = match.embedded().text();
+                    String docId = match.embedded().metadata().getString("docId");
+                    String docTopic = match.embedded().metadata().getString("topic");
+                    if (docId != null && !docId.isBlank()) {
+                        return "### 📄 Document Reference: " + docId + (docTopic != null ? " (Topic: " + docTopic + ")" : "") + "\n" + text;
+                    }
+                    return text;
+                })
                 .distinct()
                 .collect(Collectors.toList());
 
-        return validTexts.isEmpty() ? null : String.join("\n", validTexts);
+        return validTexts.isEmpty() ? null : String.join("\n\n", validTexts);
     }
 
     private static boolean hasEnoughMeaningfulOverlap(String queryText, String candidateText) {
