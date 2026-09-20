@@ -163,13 +163,13 @@ public class AuditPipelineService {
         String wikiTitle = null;
         String wikiUrl = null;
 
-        // Step 1: Query Local Vector RAG Store if user specified topic or uploaded RAG documents exist
+        // Step 1: Direct RAG Database Search across all ingested documents (with optional topic filter)
         if (localVectorRagService != null && localVectorRagService.getIngestedDocuments() != null && !localVectorRagService.getIngestedDocuments().isEmpty()) {
             String candidate = null;
             if (effectiveTopic != null && !effectiveTopic.isBlank() && !effectiveTopic.equalsIgnoreCase("all")) {
                 candidate = localVectorRagService.findRelevantContext(effectiveTopic, effectiveQuestion);
             }
-            if ((candidate == null || candidate.isBlank()) && (effectiveTopic != null && !effectiveTopic.isBlank())) {
+            if (candidate == null || candidate.isBlank()) {
                 candidate = localVectorRagService.findRelevantContext("all", effectiveQuestion);
             }
             if (candidate != null && !candidate.isBlank()) {

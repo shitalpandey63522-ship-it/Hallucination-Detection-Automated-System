@@ -137,8 +137,8 @@ public class LocalVectorRagService {
         var queryEmbedding = embeddingModel.embed(queryText).content();
         EmbeddingSearchRequest request = EmbeddingSearchRequest.builder()
                 .queryEmbedding(queryEmbedding)
-                .maxResults(15)
-                .minScore(0.20)
+                .maxResults(20)
+                .minScore(0.15)
                 .build();
 
         EmbeddingSearchResult<TextSegment> result = storeToSearch.search(request);
@@ -155,25 +155,33 @@ public class LocalVectorRagService {
 
         final String activeDocFilter = filterDocId;
 
+        // Perform Hybrid Vector + Keyword Rank Fusion Scoring
         List<String> validTexts = matches.stream()
-                .filter(m -> m.score() >= 0.20)
                 .filter(match -> {
                     if (activeDocFilter == null) return true;
                     String docId = match.embedded().metadata().getString("docId");
                     return docId != null && docId.toLowerCase().contains(activeDocFilter);
                 })
                 .filter(match -> hasEnoughMeaningfulOverlap(queryText, match.embedded().text()))
-                .filter(match -> {
-                    String lowerT = match.embedded().text().toLowerCase();
+                .map(match -> {
+                    double vectorScore = match.score();
+                    double keywordSynonymScore = calculateSynonymKeywordScore(queryText, match.embedded().text());
+                    double hybridScore = (0.5 * vectorScore) + (0.5 * keywordSynonymScore);
+                    return new HybridMatch(match, vectorScore, hybridScore, keywordSynonymScore);
+                })
+                .filter(hm -> hm.hybridScore >= 0.18 || hm.vectorScore >= 0.30 || hm.keywordSynonymScore >= 0.25)
+                .filter(hm -> {
+                    String lowerT = hm.match.embedded().text().toLowerCase();
                     if (lowerT.contains("prof. ashok chandra") && !lowerT.contains("paracetamol") && !lowerT.contains("aspirin") && !lowerT.contains("ibuprofen") && !lowerT.contains("sumatriptan")) {
                         return false;
                     }
                     return true;
                 })
-                .map(match -> {
-                    String text = match.embedded().text();
-                    String docId = match.embedded().metadata().getString("docId");
-                    String docTopic = match.embedded().metadata().getString("topic");
+                .sorted(Comparator.comparingDouble((HybridMatch hm) -> hm.hybridScore).reversed())
+                .map(hm -> {
+                    String text = hm.match.embedded().text();
+                    String docId = hm.match.embedded().metadata().getString("docId");
+                    String docTopic = hm.match.embedded().metadata().getString("topic");
                     if (docId != null && !docId.isBlank()) {
                         return "### 📄 Document Reference: " + docId + (docTopic != null ? " (Topic: " + docTopic + ")" : "") + "\n" + text;
                     }
@@ -185,23 +193,25 @@ public class LocalVectorRagService {
         return validTexts.isEmpty() ? null : String.join("\n\n", validTexts);
     }
 
-    private static boolean hasEnoughMeaningfulOverlap(String queryText, String candidateText) {
+    private static double calculateSynonymKeywordScore(String queryText, String candidateText) {
         Set<String> queryTokens = meaningfulTokens(queryText);
+        if (queryTokens.isEmpty()) return 0.0;
         Set<String> expandedQueryTokens = expandSynonyms(queryTokens);
         Set<String> candidateTokens = meaningfulTokens(candidateText);
 
-        if (queryTokens.isEmpty()) {
-            return false;
-        }
-
-        long matchingTokens = expandedQueryTokens.stream()
-                .filter(queryToken -> candidateTokens.stream().anyMatch(candidateToken ->
-                        queryToken.equals(candidateToken)
-                                || (queryToken.length() >= 4 && candidateToken.startsWith(queryToken))
-                                || (candidateToken.length() >= 4 && queryToken.startsWith(candidateToken))))
+        long matches = expandedQueryTokens.stream()
+                .filter(qToken -> candidateTokens.stream().anyMatch(cToken ->
+                        qToken.equals(cToken)
+                                || (qToken.length() >= 4 && cToken.length() >= 4 && (cToken.startsWith(qToken) || qToken.startsWith(cToken)))))
                 .count();
 
-        return matchingTokens >= 1;
+        return (double) matches / Math.max(1, queryTokens.size());
+    }
+
+    private record HybridMatch(EmbeddingMatch<TextSegment> match, double vectorScore, double hybridScore, double keywordSynonymScore) {}
+
+    private static boolean hasEnoughMeaningfulOverlap(String queryText, String candidateText) {
+        return calculateSynonymKeywordScore(queryText, candidateText) > 0;
     }
 
     private static Set<String> expandSynonyms(Set<String> tokens) {
