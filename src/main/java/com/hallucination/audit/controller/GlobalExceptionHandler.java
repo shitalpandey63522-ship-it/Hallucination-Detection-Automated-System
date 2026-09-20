@@ -29,6 +29,16 @@ public class GlobalExceptionHandler {
         return problemDetail;
     }
 
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ProblemDetail handleMaxUploadSizeExceeded(org.springframework.web.multipart.MaxUploadSizeExceededException exception) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                "The uploaded file exceeds the maximum size limit of 200MB. Please upload a compressed version or split the file."
+        );
+        problemDetail.setTitle("File Upload Size Limit Exceeded");
+        return problemDetail;
+    }
+
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleUnexpectedErrors(Exception exception) {
         exception.printStackTrace();

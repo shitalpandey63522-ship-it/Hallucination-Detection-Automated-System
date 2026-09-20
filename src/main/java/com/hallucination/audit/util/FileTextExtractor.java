@@ -24,11 +24,19 @@ public class FileTextExtractor {
         byte[] bytes = file.getBytes();
 
         if (filename.endsWith(".pdf")) {
-            return extractTextFromPdfBytes(bytes);
+            try (InputStream is = file.getInputStream();
+                 PDDocument document = PDDocument.load(is)) {
+                PDFTextStripper stripper = new PDFTextStripper();
+                String text = stripper.getText(document);
+                if (text != null && !text.isBlank()) {
+                    return sanitizeText(text);
+                }
+            } catch (Exception ignored) {}
+            return extractTextFromFallback(file.getBytes());
         } else if (filename.endsWith(".docx")) {
-            return extractTextFromDocxBytes(bytes);
+            return extractTextFromDocxBytes(file.getBytes());
         } else {
-            return extractTextFromPlainText(bytes);
+            return extractTextFromPlainText(file.getBytes());
         }
     }
 
