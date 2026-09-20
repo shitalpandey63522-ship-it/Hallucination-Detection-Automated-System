@@ -14,6 +14,8 @@ import java.util.zip.ZipInputStream;
 
 public class FileTextExtractor {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(FileTextExtractor.class);
+
     public static String extractText(MultipartFile file) throws Exception {
         if (file == null || file.isEmpty()) {
             return "";
@@ -36,7 +38,9 @@ public class FileTextExtractor {
                 if (text != null && !text.isBlank()) {
                     return sanitizeText(text);
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.warn("Failed to extract text from PDF file", e);
+            }
             return extractTextFromFallback(bytes);
         } else if (filename.endsWith(".docx")) {
             return extractTextFromDocxBytes(file.getBytes());
@@ -57,8 +61,8 @@ public class FileTextExtractor {
             if (text != null && !text.isBlank()) {
                 return sanitizeText(text);
             }
-        } catch (Exception ignored) {
-            // PDFBox fallback
+        } catch (Exception e) {
+            log.warn("Failed to extract text from PDF bytes", e);
         }
         return extractTextFromFallback(bytes);
     }
@@ -80,7 +84,8 @@ public class FileTextExtractor {
                     break;
                 }
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.warn("Failed to extract text from DOCX bytes", e);
         }
         String result = sb.toString().trim();
         return result.isBlank() ? extractTextFromPlainText(bytes) : sanitizeText(result);

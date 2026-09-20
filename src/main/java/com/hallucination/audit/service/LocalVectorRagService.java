@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 @Service
 public class LocalVectorRagService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LocalVectorRagService.class);
     private static final String CACHE_FILE_PATH = "local-rag-store.json";
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -246,7 +247,9 @@ public class LocalVectorRagService {
         try {
             File file = new File(CACHE_FILE_PATH);
             objectMapper.writerWithDefaultPrettyPrinter().writeValue(file, persistentDocs);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("Failed to save/load disk cache", e);
+        }
     }
 
     private synchronized void loadFromDiskCache() {
@@ -263,7 +266,9 @@ public class LocalVectorRagService {
                     }
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("Failed to save/load disk cache", e);
+        }
     }
 
     public record IngestedDocRecord(String topic, String docId, String text) {}

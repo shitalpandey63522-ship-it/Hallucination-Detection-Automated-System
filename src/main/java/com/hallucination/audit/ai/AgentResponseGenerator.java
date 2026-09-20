@@ -23,10 +23,10 @@ public interface AgentResponseGenerator {
             """)
     @UserMessage("""
             Context (if available):
-            {{context}}
+            <reference_context>{{context}}</reference_context>
 
             Question:
-            {{question}}
+            <user_question>{{question}}</user_question>
             """)
     String generateResponse(@V("question") String question, @V("context") String context);
 }

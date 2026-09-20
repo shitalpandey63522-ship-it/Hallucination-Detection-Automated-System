@@ -9,3 +9,15 @@ target/
 .env
 application-local.yml
 **/application-local.yml
+
+# IDE & Editor
+.vscode/
+
+# Runtime & Temporary
+.tmp/
+.tomcat/
+.tomcat-workspace/
+*.class
+
+# Generated data
+local-rag-store.json

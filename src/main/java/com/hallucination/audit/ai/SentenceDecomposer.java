@@ -24,6 +24,6 @@ public interface SentenceDecomposer {
             - Skip subjective opinions, greetings, or pure transitional filler.
             - Do not invent claims not explicitly present in the input text.
             """)
-    @UserMessage("Perform atomic factual claim decomposition on the following text:\n\n{{text}}")
+    @UserMessage("Perform atomic factual claim decomposition on the following text:\n\n<user_text>{{text}}</user_text>")
     List<String> decompose(@V("text") String text);
 }

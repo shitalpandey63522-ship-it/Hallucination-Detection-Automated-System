@@ -22,6 +22,6 @@ public interface TopicExtractor {
             
             Return ONLY the extracted search phrase. Do not include introductory phrases, punctuation, or explanations.
             """)
-    @UserMessage("Extract the main search topic from this text:\n\n{{text}}")
+    @UserMessage("Extract the main search topic from this text:\n\n<user_text>{{text}}</user_text>")
     String extractTopic(@V("text") String text);
 }

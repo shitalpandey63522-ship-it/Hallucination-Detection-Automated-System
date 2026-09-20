@@ -9,6 +9,10 @@ import java.util.regex.Pattern;
 
 public class LocalNlpUtils {
 
+    private static final Pattern CITATION_PATTERN_1 = Pattern.compile("\\(([A-Za-z\\s&.,]+,\\s*\\d{4}(?:,\\s*[^)]+)?)\\)");
+    private static final Pattern CITATION_PATTERN_2 = Pattern.compile("([A-Z][a-zA-Z]+(?:\\s+et\\s+al\\.)?)\\s*\\((\\d{4})(?:,\\s*([^)]+))?\\)");
+    private static final Pattern CASE_PATTERN = Pattern.compile("([A-Z][a-zA-Z0-9\\s]+)\\sv\\.?\\s([A-Z][a-zA-Z0-9\\s]+)");
+
     public static List<String> tokenizeAndClean(String text) {
         if (text == null || text.isBlank()) {
             return List.of();
@@ -68,16 +72,14 @@ public class LocalNlpUtils {
         }
         List<ExtractedCitation> result = new ArrayList<>();
         
-        Pattern pattern = Pattern.compile("\\(([A-Za-z\\s&.,]+,\\s*\\d{4}(?:,\\s*[^)]+)?)\\)");
-        Matcher matcher = pattern.matcher(text);
+        Matcher matcher = CITATION_PATTERN_1.matcher(text);
         while (matcher.find()) {
             String marker = matcher.group(0);
             String detail = matcher.group(1);
             result.add(new ExtractedCitation(marker, detail, "HALLUCINATED", "Unverified academic publication reference detected in ungrounded text.", null));
         }
         
-        Pattern pattern2 = Pattern.compile("([A-Z][a-zA-Z]+(?:\\s+et\\s+al\\.)?)\\s*\\((\\d{4})(?:,\\s*([^)]+))?\\)");
-        Matcher matcher2 = pattern2.matcher(text);
+        Matcher matcher2 = CITATION_PATTERN_2.matcher(text);
         while (matcher2.find()) {
             String marker = matcher2.group(0);
             String author = matcher2.group(1);
@@ -103,8 +105,7 @@ public class LocalNlpUtils {
             cleaned = text.trim();
         }
         
-        Pattern casePattern = Pattern.compile("([A-Z][a-zA-Z0-9\\s]+)\\sv\\.?\\s([A-Z][a-zA-Z0-9\\s]+)");
-        Matcher caseMatcher = casePattern.matcher(cleaned);
+        Matcher caseMatcher = CASE_PATTERN.matcher(cleaned);
         if (caseMatcher.find()) {
             return (caseMatcher.group(1).trim() + " v. " + caseMatcher.group(2).trim()).replaceAll("\\s+", " ");
         }

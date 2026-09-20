@@ -22,6 +22,6 @@ public interface CitationExtractor {
             - Set status to 'UNVERIFIED', reasoning to 'Pending check', and suggestedAlternative to null.
             Do not make up citations. Only extract what is explicitly or implicitly cited in the text.
             """)
-    @UserMessage("Extract all citations from this text:\n\n{{text}}")
+    @UserMessage("Extract all citations from this text:\n\n<user_text>{{text}}</user_text>")
     List<ExtractedCitation> extract(@V("text") String text);
 }

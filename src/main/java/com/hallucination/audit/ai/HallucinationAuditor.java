@@ -36,10 +36,10 @@ public interface HallucinationAuditor {
             """)
     @UserMessage("""
             Ground-truth context:
-            {{context}}
+            <reference_context>{{context}}</reference_context>
 
             Claim to evaluate:
-            {{claim}}
+            <user_claim>{{claim}}</user_claim>
             """)
     ClaimEvaluation evaluate(@V("claim") String claim, @V("context") String context);
 }

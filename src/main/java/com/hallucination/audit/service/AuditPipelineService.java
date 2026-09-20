@@ -31,6 +31,9 @@ import java.util.concurrent.Executor;
 @Service
 public class AuditPipelineService {
 
+    private static final java.util.regex.Pattern NUM_PATTERN = java.util.regex.Pattern.compile("\\b(\\d+(?:\\.\\d+)?|\\d+%|\\d+-\\d+)\\b");
+    private static final java.util.regex.Pattern NEGATION_PATTERN = java.util.regex.Pattern.compile("\\b(not|never|no|denied|refused|incorrect|false|fail)\\b");
+
     private final SentenceDecomposer sentenceDecomposer;
     private final HallucinationAuditor hallucinationAuditor;
     private final AuditLogRepository auditLogRepository;
@@ -737,12 +740,11 @@ public class AuditPipelineService {
                     + ". Evidence: \"" + relevantContext.trim() + "\"";
         }
 
-        java.util.regex.Pattern numPattern = java.util.regex.Pattern.compile("\\b(\\d+(?:\\.\\d+)?|\\d+%|\\d+-\\d+)\\b");
-        java.util.regex.Matcher matcher = numPattern.matcher(claim);
+        java.util.regex.Matcher matcher = NUM_PATTERN.matcher(claim);
         while (matcher.find()) {
             String num = matcher.group(1);
             if (!relevantContext.contains(num)) {
-                java.util.regex.Matcher ctxMatcher = numPattern.matcher(relevantContext);
+                java.util.regex.Matcher ctxMatcher = NUM_PATTERN.matcher(relevantContext);
                 while (ctxMatcher.find()) {
                     String ctxNum = ctxMatcher.group(1);
                     if (isSameNumericType(num, ctxNum) && !num.equals(ctxNum)) {
@@ -761,14 +763,8 @@ public class AuditPipelineService {
         if (text == null || text.isBlank()) {
             return false;
         }
-        String[] negationWords = {"not", "never", "no", "denied", "refused", "incorrect", "false", "fail"};
         String normalized = text.toLowerCase();
-        for (String negationWord : negationWords) {
-            if (java.util.regex.Pattern.compile("\\b" + negationWord + "\\b").matcher(normalized).find()) {
-                return true;
-            }
-        }
-        return false;
+        return NEGATION_PATTERN.matcher(normalized).find();
     }
 
     private boolean looksLikeContradiction(String claim, String context) {
@@ -803,23 +799,8 @@ public class AuditPipelineService {
         String cleanedCx = cx.replaceAll("\\bno\\s+(longer|more|doubt|matter|less)\\b", " ");
         String cleanedC = c.replaceAll("\\bno\\s+(longer|more|doubt|matter|less)\\b", " ");
 
-        String[] negationWords = {"not", "never", "no", "denied", "refused", "incorrect", "false", "fail", "cannot", "isnt", "wasnt", "doesnt"};
-        
-        boolean claimHasNegation = false;
-        for (String nw : negationWords) {
-            if (java.util.regex.Pattern.compile("\\b" + nw + "\\b").matcher(cleanedC).find()) {
-                claimHasNegation = true;
-                break;
-            }
-        }
-        
-        boolean contextHasNegation = false;
-        for (String nw : negationWords) {
-            if (java.util.regex.Pattern.compile("\\b" + nw + "\\b").matcher(cleanedCx).find()) {
-                contextHasNegation = true;
-                break;
-            }
-        }
+        boolean claimHasNegation = NEGATION_PATTERN.matcher(cleanedC).find();
+        boolean contextHasNegation = NEGATION_PATTERN.matcher(cleanedCx).find();
 
         List<String> claimTokens = LocalNlpUtils.tokenizeAndClean(c);
         List<String> contextTokens = LocalNlpUtils.tokenizeAndClean(cx);
@@ -838,14 +819,13 @@ public class AuditPipelineService {
             return false;
         }
 
-        java.util.regex.Pattern numPattern = java.util.regex.Pattern.compile("\\b(\\d+(?:\\.\\d+)?|\\d+%|\\d+-\\d+)\\b");
-        java.util.regex.Matcher matcher = numPattern.matcher(claim);
+        java.util.regex.Matcher matcher = NUM_PATTERN.matcher(claim);
         
         boolean foundMismatch = false;
         while (matcher.find()) {
             String num = matcher.group(1);
             if (!context.contains(num)) {
-                java.util.regex.Matcher contextMatcher = numPattern.matcher(context);
+                java.util.regex.Matcher contextMatcher = NUM_PATTERN.matcher(context);
                 while (contextMatcher.find()) {
                     String contextNumber = contextMatcher.group(1);
                     if (isSameNumericType(num, contextNumber) && !num.equals(contextNumber)) {

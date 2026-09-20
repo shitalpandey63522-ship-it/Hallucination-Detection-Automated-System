@@ -5,11 +5,15 @@ import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 
 @Configuration
 public class GeminiConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(GeminiConfig.class);
 
     @Bean
     public ChatLanguageModel chatLanguageModel(
@@ -18,13 +22,8 @@ public class GeminiConfig {
             @Value("${gemini.temperature:0.0}") double temperature,
             @Value("${gemini.timeout-seconds:120}") int timeoutSeconds
     ) {
-        System.out.println("DEBUG - Loading GeminiConfig:");
-        System.out.println("  modelName: " + modelName);
-        System.out.println("  temperature: " + temperature);
-        System.out.println("  timeoutSeconds: " + timeoutSeconds);
-        System.out.println("  apiKey length: " + (apiKey != null ? apiKey.length() : 0));
-        if (apiKey != null && apiKey.length() > 8) {
-            System.out.println("  apiKey mask: " + apiKey.substring(0, 4) + "..." + apiKey.substring(apiKey.length() - 4));
+        if (apiKey != null && !apiKey.isEmpty()) {
+            log.info("Gemini API key configured successfully");
         }
         return GoogleAiGeminiChatModel.builder()
                 .apiKey(apiKey)

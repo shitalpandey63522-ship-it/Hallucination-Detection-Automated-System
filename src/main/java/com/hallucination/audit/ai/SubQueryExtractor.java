@@ -25,6 +25,6 @@ public interface SubQueryExtractor {
 
             Return ONLY the extracted search phrases as a list. Keep queries short and factual.
             """)
-    @UserMessage("Extract factual sub-queries from this claim:\n\n{{claim}}")
+    @UserMessage("Extract factual sub-queries from this claim:\n\n<user_claim>{{claim}}</user_claim>")
     List<String> extractSubQueries(@V("claim") String claim);
 }

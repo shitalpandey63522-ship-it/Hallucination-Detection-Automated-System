@@ -63,9 +63,9 @@ public class CitationVerificationService {
                 return fallbackCitationEvaluation(citation);
             }
 
-            Object[] parsed = parseAuthorAndYear(evaluated.referenceDetail());
-            String author = (String) parsed[0];
-            Integer yearStr = (Integer) parsed[1];
+            AuthorYear parsed = parseAuthorAndYear(evaluated.referenceDetail());
+            String author = parsed.author();
+            Integer yearStr = parsed.year();
 
             if (yearStr != null && yearStr > LocalDate.now().getYear() + 1) {
                 return new ExtractedCitation(
@@ -98,8 +98,10 @@ public class CitationVerificationService {
         }
     }
 
-    private Object[] parseAuthorAndYear(String referenceDetail) {
-        if (referenceDetail == null) return new Object[]{null, null};
+    private record AuthorYear(String author, Integer year) {}
+
+    private AuthorYear parseAuthorAndYear(String referenceDetail) {
+        if (referenceDetail == null) return new AuthorYear(null, null);
 
         Pattern yearPattern = Pattern.compile("\\b(19|20)\\d{2}\\b");
         Matcher yearMatcher = yearPattern.matcher(referenceDetail);
@@ -119,7 +121,7 @@ public class CitationVerificationService {
                 author = author.substring(0, author.length() - 6).trim();
             }
         }
-        return new Object[]{author, year};
+        return new AuthorYear(author, year);
     }
 
     private Integer extractDeathYearFromWikipedia(String summary) {
