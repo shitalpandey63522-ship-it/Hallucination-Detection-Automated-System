@@ -1,13 +1,15 @@
 :root {
       --bg: #040209;
-      --panel: rgba(15, 11, 28, 0.6);
-      --panel-hover: rgba(26, 20, 48, 0.7);
+      --panel: rgba(15, 11, 28, 0.65);
+      --panel-hover: rgba(26, 20, 48, 0.75);
+      --card-bg: rgba(15, 11, 28, 0.65);
       --accent: #a855f7;
       --accent-grad: linear-gradient(135deg, #a855f7, #ec4899);
       --accent-glow: rgba(168, 85, 247, 0.25);
       --text: #f8fafc;
       --muted: #94a3b8;
-      --border: rgba(168, 85, 247, 0.15);
+      --text-muted: #94a3b8;
+      --border: rgba(168, 85, 247, 0.2);
       
       --safe: #22d3ee;
       --safe-bg: rgba(34, 211, 238, 0.08);

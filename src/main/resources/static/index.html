@@ -72,29 +72,29 @@
           <h2 id="workspace-title">Hallucination Detector</h2>
           <p id="workspace-subtitle">Paste text below to detect hallucinations, verify citations, and find credible academic references.</p>
         </div>
-        <div style="display:flex; gap:8px; background:rgba(0,0,0,0.3); padding:4px; border-radius:10px; border:1px solid var(--border);">
-          <button id="mode-audit-btn" onclick="switchAppMode('audit')" style="background:var(--accent); color:white; border:none; border-radius:6px; padding:6px 12px; font-size:0.8rem; cursor:pointer; font-weight:600;">🔍 Detector Mode</button>
-          <button id="mode-qa-btn" onclick="switchAppMode('qa')" style="background:transparent; color:var(--text-muted); border:none; border-radius:6px; padding:6px 12px; font-size:0.8rem; cursor:pointer; font-weight:600;">🤖 Zero-Hallucination QA</button>
+        <div style="display:flex; gap:8px; background:rgba(0,0,0,0.4); padding:4px; border-radius:10px; border:1px solid var(--border);">
+          <button id="mode-audit-btn" onclick="switchAppMode('audit')" style="background:var(--accent-grad); color:white; border:none; border-radius:6px; padding:6px 14px; font-size:0.8rem; cursor:pointer; font-weight:600; box-shadow:0 0 15px rgba(168,85,247,0.3);">🔍 Detector Mode</button>
+          <button id="mode-qa-btn" onclick="switchAppMode('qa')" style="background:transparent; color:var(--muted); border:none; border-radius:6px; padding:6px 14px; font-size:0.8rem; cursor:pointer; font-weight:600;">🤖 Zero-Hallucination QA</button>
         </div>
       </div>
 
       <!-- Zero-Hallucination QA Mode Panel -->
-      <div id="qa-mode-panel" style="display:none; background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:20px;">
+      <div id="qa-mode-panel" style="display:none; background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:20px; backdrop-filter:blur(12px);">
         <div style="margin-bottom:12px;">
           <label style="font-size:0.85rem; font-weight:600; color:var(--accent); display:block; margin-bottom:6px;">Ask Question (Zero-Hallucination Guardrail Active)</label>
-          <textarea id="qa-question-input" placeholder="Ask any question. If no verified reference facts are found in local RAG or Wikipedia, the system refuses to guess." style="width:100%; height:70px; background:rgba(0,0,0,0.2); border:1px solid var(--border); color:white; border-radius:8px; padding:10px; font-size:0.9rem; resize:vertical;"></textarea>
+          <textarea id="qa-question-input" placeholder="Ask any question. If no verified reference facts are found in local RAG or Wikipedia, the system refuses to guess." style="width:100%; height:75px; background:rgba(4, 2, 9, 0.6); border:1px solid var(--border); color:white; border-radius:8px; padding:12px; font-size:0.9rem; resize:vertical; outline:none;"></textarea>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-          <select id="qa-topic-input" style="flex:1; background:rgba(0,0,0,0.4); border:1px solid var(--border); color:white; border-radius:6px; padding:10px 12px; font-size:0.85rem; outline:none; cursor:pointer;">
+          <select id="qa-topic-input" style="flex:1; background:rgba(4, 2, 9, 0.6); border:1px solid var(--border); color:white; border-radius:8px; padding:10px 12px; font-size:0.85rem; outline:none; cursor:pointer;">
             <option value="">📁 Select Topic (Optional: Search All RAG Data & Wikipedia)</option>
           </select>
-          <button id="qa-submit-btn" onclick="runZeroHallucinationQA()" style="background:var(--accent); color:white; border:none; border-radius:8px; padding:10px 20px; font-size:0.85rem; cursor:pointer; font-weight:600; white-space:nowrap;">🤖 Generate Verified Answer</button>
+          <button id="qa-submit-btn" onclick="runZeroHallucinationQA()" style="background:var(--accent-grad); color:white; border:none; border-radius:8px; padding:10px 20px; font-size:0.85rem; cursor:pointer; font-weight:600; white-space:nowrap; box-shadow:0 0 15px rgba(168,85,247,0.3);">🤖 Generate Verified Answer</button>
         </div>
-        <div id="qa-result-box" style="display:none; margin-top:15px; background:rgba(16, 185, 129, 0.05); border:1px solid #10b981; border-radius:8px; padding:15px;">
-          <div style="font-size:0.75rem; font-weight:700; color:#10b981; margin-bottom:6px;" id="qa-status-badge">VERIFIED FACTUAL ANSWER</div>
+        <div id="qa-result-box" style="display:none; margin-top:15px; background:rgba(34, 211, 238, 0.05); border:1px solid var(--safe-border); border-radius:10px; padding:16px;">
+          <div style="font-size:0.75rem; font-weight:700; color:var(--safe); margin-bottom:6px;" id="qa-status-badge">VERIFIED FACTUAL ANSWER</div>
           <p id="qa-answer-text" style="color:white; font-size:0.95rem; line-height:1.6; white-space:pre-wrap;"></p>
           <div id="qa-source-text" style="margin-top:12px; color:var(--muted); font-size:0.8rem; line-height:1.5;"></div>
-          <div id="qa-limitations-text" style="margin-top:8px; color:#fbbf24; font-size:0.8rem; line-height:1.5;"></div>
+          <div id="qa-limitations-text" style="margin-top:8px; color:var(--warn); font-size:0.8rem; line-height:1.5;"></div>
         </div>
       </div>
 
@@ -114,8 +114,8 @@
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
             <label for="context-input" style="margin: 0;">Reference Context / Ground Truth (Optional)</label>
             <div style="display: flex; align-items: center; gap: 6px;">
-              <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Middleware Source Decision:</span>
-              <select id="context-source-mode" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); color: #60a5fa; border-radius: 6px; padding: 4px 8px; font-size: 0.78rem; outline: none; cursor: pointer; font-weight: 600;">
+              <span style="font-size: 0.75rem; color: var(--muted); font-weight: 600;">Middleware Source Decision:</span>
+              <select id="context-source-mode" style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); color: #e9d5ff; border-radius: 6px; padding: 4px 10px; font-size: 0.78rem; outline: none; cursor: pointer; font-weight: 600;">
                 <option value="box_only" selected>🔒 Ground Truth Box Only (Strict: No RAG / Wiki fallback)</option>
                 <option value="rag_only">📁 Uploaded RAG Store Only</option>
                 <option value="wiki_only">🌐 Live Wikipedia Only</option>
@@ -126,44 +126,44 @@
           <input id="context-input" placeholder="Enter trusted facts. If left blank and mode is 'Ground Truth Box Only', no external context will be used." />
         </div>
 
-        <div style="margin-top: 15px; background: rgba(168, 85, 247, 0.03); border: 1px dashed rgba(168, 85, 247, 0.3); border-radius: 8px; padding: 12px;">
+        <div style="margin-top: 15px; background: rgba(168, 85, 247, 0.04); border: 1px dashed var(--border); border-radius: 12px; padding: 14px;">
           <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="toggleRagPanel()">
             <span style="font-size:0.85rem; font-weight:600; color:var(--accent);">⚡ Local Vector RAG Knowledge Base</span>
-            <span id="rag-status-badge" style="font-size:0.75rem; background:rgba(168, 85, 247, 0.2); padding:3px 8px; border-radius:12px; color:white;">Active (Topic Isolation Support)</span>
+            <span id="rag-status-badge" style="font-size:0.75rem; background:rgba(168, 85, 247, 0.2); padding:3px 10px; border-radius:12px; color:#e9d5ff; border:1px solid rgba(168,85,247,0.3);">Active (Topic Isolation Support)</span>
           </div>
-          <div id="rag-panel-body" style="display:none; margin-top:10px;">
+          <div id="rag-panel-body" style="display:none; margin-top:12px;">
             <div style="display:flex; gap:10px; margin-bottom:8px;">
-              <input id="rag-topic-input" placeholder="Topic Category (e.g. Legal, Medical, Science, History)" style="flex:1; background:rgba(0,0,0,0.2); border:1px solid var(--border); color:white; border-radius:6px; padding:6px 10px; font-size:0.85rem;" />
-              <input id="rag-docid-input" placeholder="Doc ID (Optional)" style="width:120px; background:rgba(0,0,0,0.2); border:1px solid var(--border); color:white; border-radius:6px; padding:6px 10px; font-size:0.85rem;" />
+              <input id="rag-topic-input" placeholder="Topic Category (e.g. Legal, Medical, Science, History)" style="flex:1; background:rgba(4, 2, 9, 0.6); border:1px solid var(--border); color:white; border-radius:8px; padding:8px 12px; font-size:0.85rem; outline:none;" />
+              <input id="rag-docid-input" placeholder="Doc ID (Optional)" style="width:130px; background:rgba(4, 2, 9, 0.6); border:1px solid var(--border); color:white; border-radius:8px; padding:8px 12px; font-size:0.85rem; outline:none;" />
             </div>
             
             <!-- Supported Formats Badges -->
-            <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px; font-size:0.75rem; color:var(--text-muted);">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px; font-size:0.75rem; color:var(--muted);">
               <span>Supported Formats:</span>
-              <span style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.3); padding:2px 6px; border-radius:4px; font-weight:600;">.PDF</span>
-              <span style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.3); padding:2px 6px; border-radius:4px; font-weight:600;">.DOCX</span>
-              <span style="background:rgba(168,85,247,0.15); color:#c084fc; border:1px solid rgba(168,85,247,0.3); padding:2px 6px; border-radius:4px; font-weight:600;">.TXT</span>
-              <span style="background:rgba(245,158,11,0.15); color:#fbbf24; border:1px solid rgba(245,158,11,0.3); padding:2px 6px; border-radius:4px; font-weight:600;">.MD</span>
+              <span style="background:rgba(168,85,247,0.12); color:#d8b4fe; border:1px solid rgba(168,85,247,0.25); padding:2px 8px; border-radius:4px; font-weight:600;">.PDF</span>
+              <span style="background:rgba(168,85,247,0.12); color:#d8b4fe; border:1px solid rgba(168,85,247,0.25); padding:2px 8px; border-radius:4px; font-weight:600;">.DOCX</span>
+              <span style="background:rgba(168,85,247,0.12); color:#d8b4fe; border:1px solid rgba(168,85,247,0.25); padding:2px 8px; border-radius:4px; font-weight:600;">.TXT</span>
+              <span style="background:rgba(168,85,247,0.12); color:#d8b4fe; border:1px solid rgba(168,85,247,0.25); padding:2px 8px; border-radius:4px; font-weight:600;">.MD</span>
             </div>
 
             <!-- RAG File Drag & Drop Zone -->
-            <div style="border: 1px dashed rgba(168, 85, 247, 0.4); background: rgba(0,0,0,0.15); border-radius: 6px; padding: 10px; text-align: center; margin-bottom: 8px; cursor: pointer;" onclick="document.getElementById('rag-file-input').click()">
+            <div style="border: 1px dashed rgba(168, 85, 247, 0.4); background: rgba(4, 2, 9, 0.4); border-radius: 8px; padding: 12px; text-align: center; margin-bottom: 10px; cursor: pointer; transition: all 0.2s;" onclick="document.getElementById('rag-file-input').click()">
               <span style="font-size: 0.8rem; color: white;">📁 <strong>Click or Drag & Drop File</strong> to Embed (.pdf, .docx, .txt, .md)</span>
               <input type="file" id="rag-file-input" style="display:none" accept=".pdf,.docx,.txt,.md" onchange="handleRagFileSelected(event)" />
             </div>
 
-            <textarea id="rag-ingest-input" placeholder="Or paste reference text directly to embed into this topic's vector database..." style="width:100%; height:60px; background:rgba(0,0,0,0.2); border:1px solid var(--border); color:white; border-radius:6px; padding:8px; font-size:0.85rem; resize:vertical;"></textarea>
-            <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
-              <button onclick="ingestRagDocument()" style="background:var(--accent); color:white; border:none; border-radius:6px; padding:6px 12px; font-size:0.8rem; cursor:pointer; font-weight:600;">Embed into Topic Vector Database</button>
-              <button onclick="openRagViewerModal()" style="background:rgba(59,130,246,0.2); color:#60a5fa; border:1px solid rgba(59,130,246,0.4); border-radius:6px; padding:6px 12px; font-size:0.8rem; cursor:pointer; font-weight:600;">👁️ View RAG Data</button>
-              <button onclick="clearRagDatabase()" style="background:rgba(239,68,68,0.2); color:#f87171; border:1px solid rgba(239,68,68,0.4); border-radius:6px; padding:6px 12px; font-size:0.8rem; cursor:pointer; font-weight:600;">🗑️ Clear Vector Database</button>
+            <textarea id="rag-ingest-input" placeholder="Or paste reference text directly to embed into this topic's vector database..." style="width:100%; height:65px; background:rgba(4, 2, 9, 0.6); border:1px solid var(--border); color:white; border-radius:8px; padding:10px; font-size:0.85rem; resize:vertical; outline:none;"></textarea>
+            <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
+              <button onclick="ingestRagDocument()" style="background:var(--accent-grad); color:white; border:none; border-radius:8px; padding:8px 16px; font-size:0.8rem; cursor:pointer; font-weight:600; box-shadow:0 0 12px rgba(168,85,247,0.3);">Embed into Topic Vector Database</button>
+              <button onclick="openRagViewerModal()" style="background:rgba(168,85,247,0.15); color:#e9d5ff; border:1px solid rgba(168,85,247,0.35); border-radius:8px; padding:8px 16px; font-size:0.8rem; cursor:pointer; font-weight:600;">👁️ View RAG Data</button>
+              <button onclick="clearRagDatabase()" style="background:rgba(244,63,94,0.15); color:#fca5a5; border:1px solid rgba(244,63,94,0.35); border-radius:8px; padding:8px 16px; font-size:0.8rem; cursor:pointer; font-weight:600;">🗑️ Clear Vector Database</button>
             </div>
           </div>
         </div>
 
         <div class="domain-mode-container" style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px;">
-          <label for="domain-mode" style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Audit Sensitivity Mode</label>
-          <select id="domain-mode" style="background: rgba(168, 85, 247, 0.05); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 10px; font-size: 0.9rem; outline: none; transition: border-color 0.2s; cursor: pointer; width: 100%;">
+          <label for="domain-mode" style="font-size: 0.85rem; font-weight: 600; color: var(--muted);">Audit Sensitivity Mode</label>
+          <select id="domain-mode" style="background: rgba(4, 2, 9, 0.6); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 10px; font-size: 0.9rem; outline: none; transition: border-color 0.2s; cursor: pointer; width: 100%;">
             <option value="strict">Strict / Factual (Academic Papers, Essays, Dates)</option>
             <option value="creative">Creative / Narrative (Allows imaginative / fictional statements)</option>
           </select>
