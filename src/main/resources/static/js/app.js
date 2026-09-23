@@ -1117,6 +1117,11 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
       const container = document.getElementById('rag-modal-doc-list');
       const countSpan = document.getElementById('rag-modal-doc-count');
       countSpan.innerText = `${docs.length} Document(s) Embedded`;
+
+      const ragBadge = document.getElementById('rag-status-badge');
+      if (ragBadge) {
+        ragBadge.textContent = docs && docs.length > 0 ? `Active (${docs.length} Doc${docs.length > 1 ? 's' : ''} Indexed)` : `Active (Topic Isolation Support)`;
+      }
       
       if (!docs || docs.length === 0) {
         container.innerHTML = `
@@ -1164,5 +1169,30 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
         if (arrow) {
           arrow.textContent = sidebar.classList.contains('mobile-open') ? '▲' : '▼';
         }
+      }
+    }
+
+    function copyAuditSummary() {
+      const score = document.getElementById('score-val').textContent || '0%';
+      const verdict = document.getElementById('report-verdict').textContent || 'Safe';
+      const totalClaims = document.getElementById('stat-total-claims').textContent || '0';
+      const fakeCitations = document.getElementById('stat-fake-citations').textContent || '0';
+      const supportedRate = document.getElementById('stat-supported-rate').textContent || '0%';
+
+      const summaryText = `--- Hallucination Audit Executive Summary ---
+Factual Integrity Score: ${score} (${verdict})
+Total Claims Audited: ${totalClaims}
+Supported Rate: ${supportedRate}
+Fake/Hallucinated Citations: ${fakeCitations}
+Audited via Hallucination Detection & Automated System`;
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(summaryText).then(() => {
+          showToast("📋 Executive Summary copied to clipboard!");
+        }).catch(() => {
+          showToast("Copied summary to clipboard");
+        });
+      } else {
+        showToast("Copied summary to clipboard");
       }
     }
